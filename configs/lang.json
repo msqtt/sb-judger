@@ -1,0 +1,81 @@
+{
+	"c":{
+		"pids": 1,
+		"src": "main.c",
+		"out": "main",
+		"compile": {
+			"cmd": "gcc",
+			"flags": [
+				"-DONLINE_JUDGE",
+				 "-O2",
+				 "-w",
+				 "-fmax-errors=3",
+				 "-std=c11",
+				 "%s",
+				 "-lm",
+				 "-o" ,
+				 "%s"
+			]
+		},
+		"run": ["%s"]
+	},
+	"cpp":{
+		"pids": 1,
+		"src": "main.cpp",
+		"out": "main",
+		"compile": {
+			"cmd": "g++",
+			"flags": [
+				"-DONLINE_JUDGE",
+				"-O2",
+				"-w",
+				"-fmax-errors=3",
+				"-std=c++14",
+				"%s",
+				"-lm",
+				"-o" ,
+				"%s"
+			]
+		},
+		"run": ["%s"]
+	},
+	"golang":{
+		"pids": 5,
+		"src": "main.go",
+		"out": "main",
+		"compile": {
+			"cmd": "go",
+			"flags": ["build", "-o", "%s", "%s"]
+		},
+		"run": ["%s"]
+	},
+	"java":{
+		"pids": 22,
+		"src": "Main.java",
+		"out": "Main.class",
+		"compile": {
+			"cmd": "javac",
+			"flags": ["%s", "-encoding", "UTF8"]
+		},
+		"run": ["java", "%s"]
+	},
+	"python": {
+		"pids": 1,
+		"src": "main.py",
+		"out": "__pycache__/main.cpython-311.pyc",
+		"compile": {
+			"cmd": "python",
+			"flags": ["-m", "py_compile", "%s"]
+		},
+		"run": ["python", "%s"]
+	},
+	"rust":{
+		"pids": 1,
+		"src": "main.rs",
+		"out": "main",
+		"compile": {
+			"cmd": "rustc",
+			"flags": ["%s", "-o", "%s"] },
+		"run": ["%s"]
+	}
+}
