@@ -10,14 +10,14 @@ type ResourceManager interface {
 
 // ResourceConfig records the limits of resource.
 type ResourceConfig struct {
-	CpuLimit    uint
-	MemoryLimit uint
-	PidsLimit   uint
+	CpuLimit    uint32
+	MemoryLimit uint32
+	PidsLimit   uint32
 }
 
 // ResourceConfig records the resources' usage of processes put into ResourceManager.
 type RunState struct {
-	CpuTime     uint
-	MemoryUsage uint
-	OOMKill     uint
+	CpuTime     float32
+	MemoryUsage float32
+	OOMKill     uint32
 }

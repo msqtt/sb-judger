@@ -68,7 +68,7 @@ func (cg *CgroupV2) Config(config *ResourceConfig) error {
 	return nil
 }
 
-// ReadState implements ResourceManager.
+// ReadState returns the usage data product by process running.
 func (cg *CgroupV2) ReadState() (*RunState, error) {
 	rs := new(RunState)
 	byte, err := os.ReadFile(filepath.Join(cg.path, "cpu.stat"))
@@ -76,17 +76,17 @@ func (cg *CgroupV2) ReadState() (*RunState, error) {
 		return nil, fmt.Errorf("cannot readfile cpu.stat: %w", err)
 	}
 	cpuStatMap, err := makeStatMap(byte)
-	rs.CpuTime = cpuStatMap["user_usec"] / 1000
+	rs.CpuTime = float32(cpuStatMap["user_usec"]) / 1000
 
 	byte, err = os.ReadFile(filepath.Join(cg.path, "memory.peak"))
 	if err != nil {
 		return nil, fmt.Errorf("cannot readfile memory.peak: %w", err)
 	}
-	integer, err := strconv.Atoi(string(byte))
+	memUsc, err := strconv.Atoi(strings.TrimSpace(string(byte)))
 	if err != nil {
 		return nil, fmt.Errorf("cannot readfile memory.peak: %w", err)
 	}
-	rs.MemoryUsage = uint(integer >> 20)
+	rs.MemoryUsage = float32(memUsc >> 20)
 
 	byte, err = os.ReadFile(filepath.Join(cg.path, "memory.events"))
 	if err != nil {
@@ -98,17 +98,20 @@ func (cg *CgroupV2) ReadState() (*RunState, error) {
 	return rs, nil
 }
 
-func makeStatMap(byte []byte) (map[string]uint, error) {
+func makeStatMap(byte []byte) (map[string]uint32, error) {
 	all := string(byte)
 	lines := strings.Split(all, "\n")
-	m := make(map[string]uint)
+	m := make(map[string]uint32)
 	for _, line := range lines {
 		item := strings.Split(line, " ")
+		if len(item) < 2{
+			continue
+		}
 		integer, err := strconv.Atoi(item[1])
 		if err != nil {
 			return nil, err
 		}
-		m[item[0]] = uint(integer)
+		m[item[0]] = uint32(integer)
 	}
 	return m, nil
 }

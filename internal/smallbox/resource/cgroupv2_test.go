@@ -96,6 +96,10 @@ func TestCgroupV2Apply(t *testing.T) {
 	err = cmd.Wait()
 	require.NoError(t, err)
 
+	rs, err := cv.ReadState()
+	require.NoError(t, err)
+	require.NotEmpty(t, rs)
+
 	err = cgroupv2.Destroy()
 	require.NoError(t, err)
 }
@@ -113,5 +117,5 @@ func testCompareFileConent(t *testing.T, path string, content string) {
 	byte, err := ioutil.ReadFile(path)
 	require.NoError(t, err)
 	require.NotEmpty(t, byte)
-	require.Equal(t, content, strings.Trim(string(byte), "\n"))
+	require.Equal(t, content, strings.TrimSpace(string(byte)))
 }
