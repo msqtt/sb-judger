@@ -2,6 +2,7 @@ package fs
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -12,6 +13,12 @@ type Rootfs interface {
 	Make(dest string) error
 	Remove() error
 	MountPoint() (string, error)
+	// put file to a named path, if path do not exist, it will be created.
+	PutFile(path, fileName string, file io.Reader) error
+	// move srcPath to destPath.
+	Move(srcPath, destPath string) error
+	// delete path, if enable recursion.
+	Delete(path string, rec bool) error
 }
 
 // ChrootMaskPath will mount rootfs, chroot and mask some paths.

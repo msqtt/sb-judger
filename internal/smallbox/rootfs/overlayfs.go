@@ -3,6 +3,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -15,6 +16,44 @@ type Overlayfs struct {
 	workPath  string
 	mntPath   string
 	rootPath  string
+}
+
+// Delete implements Rootfs.
+func (fs *Overlayfs) Delete(path string, rec bool) error {
+	path = filepath.Join(fs.upperPath, path)
+	if rec {
+		return os.RemoveAll(path)
+	}
+	return os.Remove(path)
+}
+
+// Move implements Rootfs.
+func (fs *Overlayfs) Move(srcPath, destPath string) error {
+	return os.Rename(srcPath, filepath.Join(fs.upperPath, destPath))
+}
+
+// PutFile implements Rootfs.
+func (fs *Overlayfs) PutFile(path, fileName string, file io.Reader) error {
+	loc := filepath.Join(fs.upperPath, path)
+	_, err := os.Stat(loc)
+	if err != nil {
+		if os.IsExist(err) {
+			return fmt.Errorf("cannot identify given path: [%w]", err)
+		}
+	}
+	err = os.MkdirAll(loc, 0755)
+	if err != nil {
+		return fmt.Errorf("cannot mkdir dir: [%w]", err)
+	}
+	b, err := io.ReadAll(file)
+	if err != nil {
+		return fmt.Errorf("cannot read from file: [%w]", err)
+	}
+	err = os.WriteFile(filepath.Join(loc, fileName), b, 0644)
+	if err != nil {
+		return fmt.Errorf("cannot write file: [%w]", err)
+	}
+	return nil
 }
 
 var _ Rootfs = (*Overlayfs)(nil)
@@ -37,8 +76,8 @@ func NewOverlayfs(rootfsPath string) (*Overlayfs, error) {
 	}, nil
 }
 
-// Make Overlay Rootfs in destinational path.
-// returns an error 
+// Make Overlay Rootfs in dest path.
+// returns an error
 func (fs *Overlayfs) Make(dest string) error {
 	// makedir
 	folders := []string{"upper", "worker", "mnt"}
@@ -88,4 +127,3 @@ func (fs *Overlayfs) Remove() error {
 	}
 	return nil
 }
-

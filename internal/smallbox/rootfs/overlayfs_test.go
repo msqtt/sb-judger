@@ -1,10 +1,12 @@
 package fs
 
 import (
+	"bytes"
 	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -79,4 +81,28 @@ func makeTestMnt(t *testing.T, overlayfs *Overlayfs) []fs.FileInfo {
 	require.NotEmpty(t, dir)
 
 	return dir
+}
+
+func TestPutFile(t *testing.T) {
+	o, err := NewOverlayfs(testRootfsPath)
+	require.NoError(t, err)
+	require.NotNil(t, o)
+	
+	testPath := "./test"
+	err = os.Mkdir(testPath, 0755)
+	require.NoError(t, err)
+
+	err2 := o.Make(testPath)
+	require.NoError(t, err2)
+
+	b := []byte("hello")
+	err3 := o.PutFile("/tmp", "1.txt", bytes.NewReader(b))
+	require.NoError(t, err3)
+
+	b2, err4 := os.ReadFile(filepath.Join(o.upperPath, "tmp", "1.txt"))
+	require.NoError(t, err4)
+	require.ElementsMatch(t, b, b2)
+
+	err5 := o.Remove()
+	require.NoError(t, err5)
 }
