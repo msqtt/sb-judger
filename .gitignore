@@ -1,1 +1,4 @@
 rootfs/*
+.direnv
+sandbox
+sb-judger
