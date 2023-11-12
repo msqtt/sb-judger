@@ -76,7 +76,7 @@ func (cg *CgroupV2) ReadState() (*RunState, error) {
 		return nil, fmt.Errorf("cannot readfile cpu.stat: %w", err)
 	}
 	cpuStatMap, err := makeStatMap(byte)
-	rs.CpuTime = float32(cpuStatMap["user_usec"]) / 1000
+	rs.CpuTime = cpuStatMap["user_usec"]
 
 	byte, err = os.ReadFile(filepath.Join(cg.path, "memory.peak"))
 	if err != nil {
@@ -86,7 +86,7 @@ func (cg *CgroupV2) ReadState() (*RunState, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot readfile memory.peak: %w", err)
 	}
-	rs.MemoryUsage = float32(memUsc >> 20)
+	rs.MemoryUsage = uint32(memUsc >> 20)
 
 	byte, err = os.ReadFile(filepath.Join(cg.path, "memory.events"))
 	if err != nil {

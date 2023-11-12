@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package v1.judger;
+option go_package="github.com/msqtt/sb-judger/api/pb/v1/judger;pb_jg";
+
+import "google/api/annotations.proto";
+import "judger/judger_message.proto";
+
+service Code {
+	// 运行代码
+	rpc RunCode(RunCodeRequest) returns (RunCodeResponse) {
+		option (google.api.http) = {
+			 post: "/v1/code/run"
+			 body: "*"
+		};
+	}
+	// 判题
+	rpc JudgeCode(JudgeCodeRequest) returns (JudgeCodeResponse) {
+		option (google.api.http) = {
+			 post: "/v1/code/judge"
+			 body: "*"
+		};
+	}
+}

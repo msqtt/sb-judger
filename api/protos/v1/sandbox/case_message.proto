@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package v1.sandbox;
+option go_package="github.com/msqtt/sb-judger/api/pb/v1/sandbox;pb_sb";
+
+message Case {
+	uint32 case_id = 1;
+	string in = 2;
+	string out = 3;
+}
+

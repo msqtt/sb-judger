@@ -17,7 +17,7 @@ type ResourceConfig struct {
 
 // ResourceConfig records the resources' usage of processes put into ResourceManager.
 type RunState struct {
-	CpuTime     float32
-	MemoryUsage float32
+	CpuTime     uint32
+	MemoryUsage uint32
 	OOMKill     uint32
 }

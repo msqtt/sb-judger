@@ -27,7 +27,7 @@ type Rootfs interface {
 func ChrootMaskPath(mnt string) error {
 	// private mount
 	if err := syscall.Mount("", "/", "", syscall.MS_REC|syscall.MS_PRIVATE, ""); err != nil {
-		return fmt.Errorf("cannot set private mount: [%w]", err)
+		return fmt.Errorf("cannot mount private root: [%w]", err)
 	}
 	// pivot root
 	oldRootfs := filepath.Join(mnt, ".pivot_root")

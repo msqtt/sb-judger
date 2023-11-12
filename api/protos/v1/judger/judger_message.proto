@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package v1.judger;
+option go_package="github.com/msqtt/sb-judger/api/pb/v1/judger;pb_jg";
+
+import "sandbox/lang_enum.proto";
+import "sandbox/case_message.proto";
+import "sandbox/status_enum.proto";
+
+message RunCodeRequest {
+	// 编程语言
+	sandbox.Language lang = 1;
+	// 程序源代码
+	string code = 2;
+	// 程序输入内容:w
+	string input = 3;
+	// 限定运行时间
+	uint32 time = 4;	
+	// 限定使用内存
+	uint32 memory = 5;
+}
+
+message RunCodeResponse {
+	// 程序输出
+	string out_put = 1;
+	// 程序耗时
+	uint32 time_usage = 2;
+	// 程序使用内存
+	uint32 memory_usage = 3;
+}
+
+message JudgeCodeRequest {
+	// 编程语言
+	sandbox.Language lang = 1;
+	// 程序源代码
+	string code = 2;
+	// 限定运行时间
+	uint32 time = 3;	
+	// 限定使用内存
+	uint32 memory = 4;
+	repeated sandbox.Case case = 5;
+}
+
+message JudgeCodeResponse {
+  // 程序状态
+	sandbox.Status status = 1;
+	// 程序使用总时间
+	uint32 total_time_usage = 2;
+	// 程序使用总内存
+	uint32 total_memory_usage = 3;
+}
