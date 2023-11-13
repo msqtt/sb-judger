@@ -24,13 +24,15 @@ func main()  {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
 	js := service.NewJudgerServer(conf, lcm)
-	mux := runtime.NewServeMux()
-	ctx := context.Background()
-	ctx, cf := context.WithCancel(ctx)
-	defer cf()
 
 	grpcServer := grpc.NewServer()
+
+	mux := runtime.NewServeMux()
+	ctx, cf := context.WithCancel(context.Background())
+	defer cf()
+
 	pb_jg.RegisterCodeServer(grpcServer, js)
 	err = pb_jg.RegisterCodeHandlerServer(ctx, mux, js)
 	if err != nil {
@@ -48,8 +50,11 @@ func main()  {
 		log.Fatalln(err)
 	}
 
-	log.Printf("GRPC Server will start at %s", grpcL.Addr().String())
+	go func() {
+		log.Printf("GRPC Server will start at %s", grpcL.Addr().String())
+		log.Fatalln(grpcServer.Serve(grpcL))
+	}()
+
 	log.Printf("REST Server will start at %s", restL.Addr().String())
-	go log.Fatalln(grpcServer.Serve(grpcL))
 	log.Fatalln(http.Serve(restL, mux))
 }

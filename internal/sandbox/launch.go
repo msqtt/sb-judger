@@ -10,7 +10,7 @@ import (
 	"strings"
 	"syscall"
 
-	fs "github.com/msqtt/sb-judger/internal/sandbox/rootfs"
+	"github.com/msqtt/sb-judger/internal/sandbox/fs"
 )
 
 // LaunchEntry is the entry of executing compiled program.

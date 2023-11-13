@@ -23,7 +23,7 @@ func CreateCompileCmd(tempPath, lang, code string, conf json.LanguageConfig) (
 	}
 
 	compileFlags := strings.Join(conf.Compile.Flags, " ")
-	
+
 	src := filepath.Join(tempPath, conf.Src)
 	out := filepath.Join(tempPath, conf.Out)
 	if lang == "golang" {
@@ -35,5 +35,16 @@ func CreateCompileCmd(tempPath, lang, code string, conf json.LanguageConfig) (
 	flags := strings.Split(compileFlags, " ")
 
 	cmd = exec.Command(conf.Cmd, flags...)
+	return
+}
+
+func RunCmdCombinded(cmd *exec.Cmd) (msg string, code int, err error) {
+	b, err := cmd.CombinedOutput()
+	code = cmd.ProcessState.ExitCode()
+	msg = string(b)
+	if err != nil {
+		err = fmt.Errorf("cannot run compile cmd: %w", err)
+		return
+	}
 	return
 }

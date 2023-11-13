@@ -18,7 +18,7 @@ import (
 	"github.com/msqtt/sb-judger/internal/pkg/config"
 	"github.com/msqtt/sb-judger/internal/pkg/json"
 	"github.com/msqtt/sb-judger/internal/sandbox"
-	fs "github.com/msqtt/sb-judger/internal/sandbox/rootfs"
+	"github.com/msqtt/sb-judger/internal/sandbox/fs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -63,24 +63,20 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 		return
 	}
 	
-	// stage1: compile code
+	// stage1: compiling code
 	cmd, err := compile.CreateCompileCmd(tempPath, lang.String(), code, *lc)
 	if err != nil {
 		log.Println(err)
 		err = status.Error(codes.Internal, "failed to create compile cmd")
 	}
 
-	compileOutput, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Println(err)
-		err = status.Error(codes.Internal, "failed to run compile cmd")
-		return
-	}
-	exitCode := cmd.ProcessState.ExitCode()
-
+	log.Println(cmd.String())
+	msg, exitCode, err := compile.RunCmdCombinded(cmd)
 	// if compile fails, return error message directly.
 	if exitCode != 0 {
-		errorMsg := strings.ReplaceAll(string(compileOutput), tempPath, "...")
+		errorMsg := strings.ReplaceAll(msg, tempPath, "...")
+		log.Println(err)
+		err = nil
 		resp = &pb_jg.RunCodeResponse{OutPut: errorMsg}
 		return
 	}
@@ -103,6 +99,7 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	if err != nil {
 		log.Println(err)
 		err = status.Error(codes.Internal, "failed to move binary file")
+		return
 	}
 
 	// stage3: run process
@@ -132,32 +129,37 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	b, err := proto.Marshal(inputMsg)
 	if err != nil {
 		log.Println(err)
-		return nil, status.Error(codes.Internal, "failed to marshal input message")
+		err = status.Error(codes.Internal, "failed to marshal input message")
+		return
 	}
 	_, err = writePipe.Write(b)
 	if err != nil {
 		log.Println(err)
-		return nil, status.Error(codes.Internal, "failed to write to pipe")
+		err = status.Error(codes.Internal, "failed to write to pipe")
+		return
 	}
 	cmd = exec.Command("./sandbox", strconv.Itoa(sandbox.ArgInit))
 	cmd.ExtraFiles = []*os.File{readPipe}
 	data, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Println(err)
-		return nil, status.Error(codes.Internal, "failed to run cmd")
+		err = status.Error(codes.Internal, "failed to run cmd")
+		return
 	}
 	collectOut := new(pb_sb.CollectOutput)
 	err = proto.Unmarshal(data, collectOut)
 	if err != nil {
 		log.Println(err)
-		return nil, status.Error(codes.Internal, "failed to unmarshal out")
+		err = status.Error(codes.Internal, "failed to unmarshal out")
+		return
 	}
 	out := collectOut.GetCaseOuts()[0]
-	return &pb_jg.RunCodeResponse{
+	resp = &pb_jg.RunCodeResponse{
 		OutPut: out.OutPut,
 		TimeUsage: out.TimeUsage,
 		MemoryUsage: out.MemoryUsage,
-	}, nil
+	}
+	return
 }
 
 func str2pbLang(str string) (pb_sb.Language) {
