@@ -6,7 +6,7 @@ option go_package="github.com/msqtt/sb-judger/api/pb/v1/sandbox;pb_sb";
 import "sandbox/status_enum.proto";
 
 message Output {
-  uint32 case_id = 1;
+	uint32 case_id = 1;
 	uint32 time_usage = 2;
 	uint32 memory_usage = 3;
 	Status status = 4;

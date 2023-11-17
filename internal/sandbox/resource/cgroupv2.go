@@ -1,7 +1,10 @@
 package res
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,7 +14,77 @@ import (
 
 const cgroupRoot = "/sys/fs/cgroup"
 
-// CgroupV2 m.anage resource by writing to linux cgroup file.
+// init function write the cgroupv2 controllers to sub_controller.
+// make sure that sub cgroup cant inherit the controllers.
+// every error causes panic.
+func init() {
+	procPath := filepath.Join(cgroupRoot, "cgroup.procs")
+	subTreePath := filepath.Join(cgroupRoot, "cgroup.subtree_control")
+	ctrlPath := filepath.Join(cgroupRoot, "cgroup.controllers")
+	tmpPath := filepath.Join(cgroupRoot, "tmp")
+	tmpProcPath := filepath.Join(tmpPath, "cgroup.procs")
+
+	// if subtrees already have controllers, skip.
+	b, err := os.ReadFile(subTreePath)
+	if err != nil {
+		err = fmt.Errorf("cannot read system subtree controllers: %w", err)
+		panic(err)
+	}
+	if bytes.Contains(b, []byte("cpu")) &&
+		bytes.Contains(b, []byte("memory")) &&
+		bytes.Contains(b, []byte("pids")) {
+		return
+	}
+
+	// if cgroup have not needed controllers, panic.
+	b1, err := os.ReadFile(ctrlPath)
+	if err != nil {
+		err = fmt.Errorf("cannot read system cgroup controllers: %w", err)
+		panic(err)
+	}
+	if !bytes.Contains(b1, []byte("cpu")) ||
+		!bytes.Contains(b1, []byte("memory")) ||
+		!bytes.Contains(b1, []byte("pids")) {
+		panic(errors.New("system cgroup controllers do not support"))
+	}
+
+	// inherit controllers
+	b2, err := os.ReadFile(procPath)
+	if err != nil {
+		err = fmt.Errorf("cannot read system cgroup procs: %w", err)
+		panic(err)
+	}
+	if len(b2) >= 0 {
+		// root cgroup is busy
+		// stage1: make a temp cgroup
+		err = os.Mkdir(tmpPath, 0644)
+		if err != nil {
+			if !errors.Is(err, fs.ErrExist)  {
+				err = fmt.Errorf("cannot make temp cgroup: %w", err)
+				panic(err)
+			}
+		}
+		// stage2: move root cgroup's pids to temp one.
+    // if you start this program in a container and the first running process is itself
+    // that might be no problem, other cases would cause panic deal to invalid arguments.
+    // todo 💩
+		err = os.WriteFile(tmpProcPath, b2, 0644)
+		if err != nil {
+			err = fmt.Errorf("cannot mv pid to temp cgroup: %w", err)
+			panic(err)
+		}
+	}
+
+	// root cgroup is not busy now
+	// stage3: write sub-tree controllers
+	err = addSubCtrls(cgroupRoot)
+	if err != nil {
+		err = fmt.Errorf("cannot add sub controllors: %w", err)
+		panic(err)
+	}
+}
+
+// CgroupV2 manage resource by writing to linux cgroup file.
 // Make sure that the host is using cgroupv2 before using this struct.
 type CgroupV2 struct {
 	path string
@@ -104,7 +177,7 @@ func makeStatMap(byte []byte) (map[string]uint32, error) {
 	m := make(map[string]uint32)
 	for _, line := range lines {
 		item := strings.Split(line, " ")
-		if len(item) < 2{
+		if len(item) < 2 {
 			continue
 		}
 		integer, err := strconv.Atoi(item[1])

@@ -7,10 +7,10 @@ import (
 	"errors"
 	"log"
 	"os"
-	"os/exec"
+	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
+	"syscall"
 
 	pb_jg "github.com/msqtt/sb-judger/api/pb/v1/judger"
 	pb_sb "github.com/msqtt/sb-judger/api/pb/v1/sandbox"
@@ -21,7 +21,6 @@ import (
 	"github.com/msqtt/sb-judger/internal/sandbox/fs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 )
 
 var ErrNotSupportedLang = errors.New("not supported language.")
@@ -40,7 +39,7 @@ func (js *JudgerServer) JudgeCode(ctx context.Context, req *pb_jg.JudgeCodeReque
 
 // RunCode implements pb_jg.CodeServer.
 func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) (
-	resp *pb_jg.RunCodeResponse, err error) {
+	*pb_jg.RunCodeResponse, error) {
 	// var err error
 	inputContent := req.GetInput()
 	code := req.GetCode()
@@ -51,23 +50,21 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	lc := js.langConfMap[lang.String()]
 	if lc == nil {
 		log.Println(ErrNotSupportedLang)
-		err = status.Error(codes.InvalidArgument, "not supported language")
-		return
+		return nil, status.Error(codes.InvalidArgument, "not supported language")
 	}
 
 	// make a tempPath for working
-	tempPath, err := os.MkdirTemp(js.conf.WorkDir, "sb-judger-*")
+	tempPath, err := os.MkdirTemp(js.conf.WorkDir, "sb-judger*")
 	if err != nil {
 		log.Println(err)
-		err = status.Error(codes.Internal, "failed to mkdir temp")
-		return
+		return nil, status.Error(codes.Internal, "failed to mkdir temp")
 	}
-	
+
 	// stage1: compiling code
 	cmd, err := compile.CreateCompileCmd(tempPath, lang.String(), code, *lc)
 	if err != nil {
 		log.Println(err)
-		err = status.Error(codes.Internal, "failed to create compile cmd")
+		return nil, status.Error(codes.Internal, "failed to create compile cmd")
 	}
 
 	log.Println(cmd.String())
@@ -75,10 +72,17 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	// if compile fails, return error message directly.
 	if exitCode != 0 {
 		errorMsg := strings.ReplaceAll(msg, tempPath, "...")
+		errorMsg = strings.ReplaceAll(errorMsg, strings.Split(tempPath, "/")[2], "...")
 		log.Println(err)
 		err = nil
-		resp = &pb_jg.RunCodeResponse{OutPut: errorMsg}
-		return
+		return &pb_jg.RunCodeResponse{OutPut: errorMsg}, nil
+	}
+	// chmod 755 for program
+	compileOutPath := filepath.Join(tempPath, lc.Out)
+	err = syscall.Chmod(compileOutPath, 0755)
+	if err != nil {
+		log.Println(err)
+		return nil, status.Error(codes.Internal, "failed to chmod for compile out file")
 	}
 
 	// stage2: builds a rootfs for running program.
@@ -90,95 +94,53 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	err = overlayfs.Make(tempPath)
 	if err != nil {
 		log.Println(err)
-		err = status.Error(codes.Internal, "failed to make overlayfs")
-		return
+		return nil, status.Error(codes.Internal, "failed to make overlayfs")
 	}
 	defer overlayfs.Remove()
 
-	err = overlayfs.Move(filepath.Join(tempPath, lc.Out), filepath.Join("/tmp", lc.Out))
+	err = overlayfs.Move(compileOutPath, filepath.Join("/tmp", lc.Out))
 	if err != nil {
 		log.Println(err)
-		err = status.Error(codes.Internal, "failed to move binary file")
-		return
+		return nil, status.Error(codes.Internal, "failed to move binary file")
 	}
 
 	// stage3: run process
-	readPipe, writePipe, err := os.Pipe()
-	if err != nil {
-		log.Println(err)
-		err = status.Error(codes.Internal, "failed to create pipe")
-		return
-	}
 	h := sha1.New()
 	h.Write([]byte(code))
 	hashName := base64.URLEncoding.EncodeToString(h.Sum(nil))
-	inputMsg := &pb_sb.Input{
-		HashName: hashName,
-		Lang: str2pbLang(lang.String()),
-		Time: time,
-		Memory: mem,
-		MntPath: tempPath,
-		Cases: []*pb_sb.Case{
+	mntPath := path.Join(tempPath, "mnt")
+	collectOut, err := sandbox.InitEntry(lang.String(), hashName, mntPath, mem, time,
+		[]*pb_sb.Case{
 			{
 				CaseId: 1,
-				In: inputContent,
-				Out: "",
+				In:     inputContent,
+				Out:    "",
 			},
 		},
-	}
-	b, err := proto.Marshal(inputMsg)
+	)
 	if err != nil {
 		log.Println(err)
-		err = status.Error(codes.Internal, "failed to marshal input message")
-		return
+		return nil, status.Error(codes.Internal, "failed to run program")
 	}
-	_, err = writePipe.Write(b)
-	if err != nil {
-		log.Println(err)
-		err = status.Error(codes.Internal, "failed to write to pipe")
-		return
+	outs := collectOut.GetCaseOuts()
+	if len(outs) <= 0 {
+		return nil, status.Error(codes.Internal, "failed to collect output")
 	}
-	cmd = exec.Command("./sandbox", strconv.Itoa(sandbox.ArgInit))
-	cmd.ExtraFiles = []*os.File{readPipe}
-	data, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Println(err)
-		err = status.Error(codes.Internal, "failed to run cmd")
-		return
-	}
-	collectOut := new(pb_sb.CollectOutput)
-	err = proto.Unmarshal(data, collectOut)
-	if err != nil {
-		log.Println(err)
-		err = status.Error(codes.Internal, "failed to unmarshal out")
-		return
-	}
-	out := collectOut.GetCaseOuts()[0]
-	resp = &pb_jg.RunCodeResponse{
-		OutPut: out.OutPut,
-		TimeUsage: out.TimeUsage,
+	out := outs[0]
+
+	return &pb_jg.RunCodeResponse{
+		OutPut:      out.OutPut,
+		TimeUsage:   out.TimeUsage,
 		MemoryUsage: out.MemoryUsage,
-	}
-	return
+	}, nil
 }
 
-func str2pbLang(str string) (pb_sb.Language) {
-	switch str {
-	case "c":
-		return pb_sb.Language_c
-	case "cpp":
-		return pb_sb.Language_cpp
-	case "golang":
-		return pb_sb.Language_golang
-	case "java":
-		return pb_sb.Language_java
-	case "python":
-		return pb_sb.Language_python
-	case "rust":
-		return pb_sb.Language_rust
-	default:
+func str2pbLang(str string) pb_sb.Language {
+	i, ok := pb_sb.Status_value[str]
+	if !ok {
 		return -1
 	}
+	return pb_sb.Language(i)
 }
 
 var _ pb_jg.CodeServer = (*JudgerServer)(nil)

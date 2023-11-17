@@ -1,4 +1,6 @@
 rootfs/*
 .direnv
 sandbox
+!internal/sandbox/*
+!cmd/sandbox/*
 sb-judger

@@ -29,7 +29,7 @@ func CreateCompileCmd(tempPath, lang, code string, conf json.LanguageConfig) (
 	if lang == "golang" {
 		src, out = out, src
 	}
-	// magic code makes my days.
+	// lazy codes make my days.
 	compileFlags = fmt.Sprintf(compileFlags, src, out)
 	compileFlags = strings.Split(compileFlags, "%!")[0]
 	flags := strings.Split(compileFlags, " ")

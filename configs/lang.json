@@ -8,7 +8,6 @@
 			"flags": [
 				"-DONLINE_JUDGE",
 				 "-O2",
-				 "-w",
 				 "-fmax-errors=3",
 				 "-std=c11",
 				 "%s",
@@ -28,7 +27,6 @@
 			"flags": [
 				"-DONLINE_JUDGE",
 				"-O2",
-				"-w",
 				"-fmax-errors=3",
 				"-std=c++14",
 				"%s",
@@ -57,17 +55,17 @@
 			"cmd": "javac",
 			"flags": ["%s", "-encoding", "UTF8"]
 		},
-		"run": ["java", "%s"]
+		"run": ["java", "Main"]
 	},
 	"python": {
 		"pids": 1,
 		"src": "main.py",
-		"out": "__pycache__/main.cpython-311.pyc",
+		"out": "__pycache__/main.cpython-310.pyc",
 		"compile": {
-			"cmd": "python",
+			"cmd": "python3",
 			"flags": ["-m", "py_compile", "%s"]
 		},
-		"run": ["python", "%s"]
+		"run": ["python3", "%s"]
 	},
 	"rust":{
 		"pids": 1,

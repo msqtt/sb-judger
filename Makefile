@@ -1,10 +1,23 @@
-.DEFAULT_GOAL := sb-judger
-untar:
-	tar zxvf rootfs.tgz
-sandbox: cmd/sandbox/main.go
-	go build -ldflags="-w -s" -o sandbox cmd/sandbox/main.go
+# deploy cmd
 sb-judger: sandbox cmd/judger/main.go
 	go build -ldflags="-w -s" -o sb-judger cmd/judger/main.go
+
+sandbox: cmd/sandbox/main.go rootfs
+	go build -ldflags="-w -s" -o sandbox cmd/sandbox/main.go
+
+clean:
+	rm sandbox sb-judger
+
+docker: build/Dockerfile rootfs
+	 docker build -f build/Dockerfile -t msqt/sb-judger:dev .
+
+rootfs: build/tarball.Dockerfile
+	docker build -f build/tarball.Dockerfile -t msqt/rootfs-tarball:dev .
+	mkdir rootfs
+	docker create msqt/rootfs-tarball:dev | xargs docker export | tar -C rootfs -xf -
+	rm -rf ./rootfs/.dockerenv ./rootfs/var/* ./rootfs/dev/*
+
+# develop cmd
 gen:
 	protoc --proto_path=api/protos/v1 \
 	--go_out=api/pb/v1 --go_opt=paths=source_relative \
@@ -13,5 +26,8 @@ gen:
 	--openapiv2_out=api/openapi/v1 \
 		api/protos/v1/sandbox/*.proto \
 		api/protos/v1/judger/*.proto
-dev:
+
+dev: sandbox
 	go run cmd/judger/main.go
+
+.PHONY: docker gen dev
