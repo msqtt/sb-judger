@@ -16,7 +16,8 @@
 				 "%s"
 			]
 		},
-		"run": ["%s"]
+		"run": ["%s"],
+    "trimMsg": []
 	},
 	"cpp":{
 		"pids": 1,
@@ -35,7 +36,8 @@
 				"%s"
 			]
 		},
-		"run": ["%s"]
+		"run": ["%s"],
+    "trimMsg": []
 	},
 	"golang":{
 		"pids": 5,
@@ -45,7 +47,8 @@
 			"cmd": "go",
 			"flags": ["build", "-o", "%s", "%s"]
 		},
-		"run": ["%s"]
+		"run": ["%s"],
+    "trimMsg": []
 	},
 	"java":{
 		"pids": 22,
@@ -55,7 +58,9 @@
 			"cmd": "javac",
 			"flags": ["%s", "-encoding", "UTF8"]
 		},
-		"run": ["java", "Main"]
+		"run": ["/usr/bin/java", "Main"],
+    "trimMsg": ["OpenJDK 64-Bit Server VM warning: Can't detect primordial thread stack location - no /proc/self/stat\n",
+      "OpenJDK 64-Bit Server VM warning: Can't detect primordial thread stack location - find_vma failed\n"]
 	},
 	"python": {
 		"pids": 1,
@@ -65,7 +70,8 @@
 			"cmd": "python3",
 			"flags": ["-m", "py_compile", "%s"]
 		},
-		"run": ["python3", "%s"]
+		"run": ["python3", "%s"],
+    "trimMsg": []
 	},
 	"rust":{
 		"pids": 1,
@@ -74,6 +80,7 @@
 		"compile": {
 			"cmd": "rustc",
 			"flags": ["%s", "-o", "%s"] },
-		"run": ["%s"]
+		"run": ["%s"],
+    "trimMsg": []
 	}
 }

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>🤪 Run Code Dev Web Editor</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      .codeInput {
+        font: 1.2rem "Fira Code", monospace;
+        margin: 2px;
+      }
+      .codeContainer {
+        display: grid;
+        grid-template-columns: auto 1fr 0.6fr;
+      }
+      #runBtn {
+        padding: 8px;
+        border: dashed;
+        border-radius: 21%;
+      }
+      .drawFont {
+        font: bold 1.2rem cursive;
+      }
+    </style>
+  </head>
+  <body>
+    <form method="POST" action="/v1/code/run">
+      <h2>🐑 Menu bar:</h2>
+      <section id="toolbar">
+        <label for="lang">Language select: </label>
+        <select id="lang" name="lang" required>
+          <option value="c">c</option>
+          <option value="cpp">cpp</option>
+          <option value="golang">golang</option>
+          <option value="python">python</option>
+          <option value="java">java</option>
+          <option value="rust">rust</option>
+        </select>&emsp;
+        <label for="memory">Memeory limit(mb): </label>
+        <input id="memory" type="text" name="memory" value="64" required size="8">&emsp;
+        <label for="time">Time limit(ms): </label>
+        <input id="time" type="text" name="time" value="1000" required size="8">&emsp;
+        <label for="outLim">Output Limit (mb): </label>
+        <input id="outLim" type="text" name="outMsgLimit" value="1" size="8">&emsp;
+
+        <span id="runBtn">
+          <button>Run</button>
+        </span>
+        <span class="drawFont">&nbsp;<--- Hey, here is the run button.</span>
+      </section>
+      <h2>🤓 Code Area:</h2>
+      <section id="codearea">
+        <div class="codeContainer">
+          <textarea class="codeInput" id="in" name="input" rows="28" placeholder="input here..." ></textarea>
+          <textarea class="codeInput" id="editor" name="code" rows="28" placeholder="code here..."
+            autocomplete="on" ></textarea>
+          <textarea class="codeInput" id="out" rows="28" readonly placeholder="output here..."></textarea>
+        </div>
+      </section>
+    </form>
+    <footer>
+      <p><a href="" target="_blank">😘 Star here</a>，and
+      Copyright (c) 2023 by <a href="https://github.com/msqtt" target="_blank">@msqtt</a>. All Rights Reserved.
+      </p>
+    </footer>
+  </body>
+  <script>
+    const form = document.querySelector("form")
+    const out = document.querySelector("#out")
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const json = JSON.stringify(Object.fromEntries(formData));
+      const resp = await fetch(form.action, {
+        method: form.method,
+        headers: {
+           'Content-Type': 'application/json;charset=utf-8'
+        },
+        body: json
+      });
+      console.log(resp);
+      if (resp.ok) {
+        const data = await resp.json();
+        out.value = data.outPut + "\n\n====================\nTimeUsage:"+
+        data.timeUsage + "\nMemoryUsage:" + data.memoryUsage;
+      } else {
+        const data = await resp.text();
+        out.value = data;
+      }
+    });
+  </script>
+</html>

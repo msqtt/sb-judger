@@ -12,10 +12,12 @@ import (
 	"github.com/msqtt/sb-judger/internal/pkg/json"
 	"github.com/msqtt/sb-judger/internal/service"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 )
 
 func main()  {
+  // load configs
 	conf, err := config.LoadConfig("./configs")
 	if err != nil {
 		log.Fatalln(err)
@@ -28,10 +30,24 @@ func main()  {
 	js := service.NewJudgerServer(conf, lcm)
 
 	grpcServer := grpc.NewServer()
+  if conf.EnableSSL {
+    tc, err := credentials.NewServerTLSFromFile(conf.EncryCrtPath, conf.EncryKeyPath)
+    if err != nil {
+      log.Fatalln(err)
+    }
+    grpcServer = grpc.NewServer(grpc.Creds(tc))
+  }
 
 	mux := runtime.NewServeMux()
 	ctx, cf := context.WithCancel(context.Background())
 	defer cf()
+
+  if conf.EnableWeb {
+    // dev run code html
+    mux.HandlePath("GET", "/",
+      wrapWithRuntimeFunc(http.StripPrefix("/",
+      http.FileServer(http.Dir("web")))))
+  }
 
 	pb_jg.RegisterCodeServer(grpcServer, js)
 	err = pb_jg.RegisterCodeHandlerServer(ctx, mux, js)
@@ -56,5 +72,15 @@ func main()  {
 	}()
 
 	log.Printf("REST Server will start at %s", restL.Addr().String())
-	log.Fatalln(http.Serve(restL, mux))
+  if conf.EnableSSL {
+    log.Fatalln(http.ServeTLS(restL, mux, conf.EncryCrtPath, conf.EncryKeyPath))
+  } else {
+    log.Fatalln(http.Serve(restL, mux))
+  }
+}
+
+func wrapWithRuntimeFunc(handler http.Handler) runtime.HandlerFunc  {
+  return func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+    handler.ServeHTTP(w, r)
+  }
 }
