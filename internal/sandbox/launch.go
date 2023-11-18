@@ -23,6 +23,9 @@ func LaunchEntry() (err error) {
   // setup args and lookup path.
   cmdArgs := strings.Split(runCmd, " ")
   runCmd, _ = exec.LookPath(cmdArgs[0])
+  if runCmd == "" {
+    runCmd = cmdArgs[0]
+  }
 
 	// stage2: mount to mark
   err = fs.ChrootMaskPath(mntPath)

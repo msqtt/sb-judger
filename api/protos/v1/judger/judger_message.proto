@@ -12,12 +12,14 @@ message RunCodeRequest {
 	sandbox.Language lang = 1;
 	// 程序源代码
 	string code = 2;
-	// 程序输入内容:w
+	// 程序输入内容
 	string input = 3;
-	// 限定运行时间
+	// 限定运行时间(单位: ms)
 	uint32 time = 4;	
-	// 限定使用内存
+	// 限定程序使用内存(单位: mb)
 	uint32 memory = 5;
+	// 限定输出内容大小(单位: mb)
+  uint32 out_msg_limit = 6;
 }
 
 message RunCodeResponse {
@@ -34,10 +36,12 @@ message JudgeCodeRequest {
 	sandbox.Language lang = 1;
 	// 程序源代码
 	string code = 2;
-	// 限定运行时间
+	// 限定运行时间(单位: ms)
 	uint32 time = 3;	
-	// 限定使用内存
+	// 限定程序使用内存(单位: mb)
 	uint32 memory = 4;
+	// 限定输出内容大小(单位: mb)
+  uint32 out_msg_limit = 6;
 	repeated sandbox.Case case = 5;
 }
 

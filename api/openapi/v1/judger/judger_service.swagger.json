@@ -1,0 +1,260 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "judger/judger_service.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "Code"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/code/judge": {
+      "post": {
+        "summary": "判题",
+        "operationId": "Code_JudgeCode",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/judgerJudgeCodeResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/judgerJudgeCodeRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Code"
+        ]
+      }
+    },
+    "/v1/code/run": {
+      "post": {
+        "summary": "运行代码",
+        "operationId": "Code_RunCode",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/judgerRunCodeResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/judgerRunCodeRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Code"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "googlerpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "judgerJudgeCodeRequest": {
+      "type": "object",
+      "properties": {
+        "lang": {
+          "$ref": "#/definitions/sandboxLanguage",
+          "title": "编程语言"
+        },
+        "code": {
+          "type": "string",
+          "title": "程序源代码"
+        },
+        "time": {
+          "type": "integer",
+          "format": "int64",
+          "title": "限定运行时间(单位: ms)"
+        },
+        "memory": {
+          "type": "integer",
+          "format": "int64",
+          "title": "限定程序使用内存(单位: mb)"
+        },
+        "outMsgLimit": {
+          "type": "integer",
+          "format": "int64",
+          "title": "限定输出内容大小(单位: mb)"
+        },
+        "case": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/sandboxCase"
+          }
+        }
+      }
+    },
+    "judgerJudgeCodeResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/v1sandboxStatus",
+          "title": "程序状态"
+        },
+        "totalTimeUsage": {
+          "type": "integer",
+          "format": "int64",
+          "title": "程序使用总时间"
+        },
+        "totalMemoryUsage": {
+          "type": "integer",
+          "format": "int64",
+          "title": "程序使用总内存"
+        }
+      }
+    },
+    "judgerRunCodeRequest": {
+      "type": "object",
+      "properties": {
+        "lang": {
+          "$ref": "#/definitions/sandboxLanguage",
+          "title": "编程语言"
+        },
+        "code": {
+          "type": "string",
+          "title": "程序源代码"
+        },
+        "input": {
+          "type": "string",
+          "title": "程序输入内容"
+        },
+        "time": {
+          "type": "integer",
+          "format": "int64",
+          "title": "限定运行时间(单位: ms)"
+        },
+        "memory": {
+          "type": "integer",
+          "format": "int64",
+          "title": "限定程序使用内存(单位: mb)"
+        },
+        "outMsgLimit": {
+          "type": "integer",
+          "format": "int64",
+          "title": "限定输出内容大小(单位: mb)"
+        }
+      }
+    },
+    "judgerRunCodeResponse": {
+      "type": "object",
+      "properties": {
+        "outPut": {
+          "type": "string",
+          "title": "程序输出"
+        },
+        "timeUsage": {
+          "type": "integer",
+          "format": "int64",
+          "title": "程序耗时"
+        },
+        "memoryUsage": {
+          "type": "integer",
+          "format": "int64",
+          "title": "程序使用内存"
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "sandboxCase": {
+      "type": "object",
+      "properties": {
+        "caseId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "in": {
+          "type": "string"
+        },
+        "out": {
+          "type": "string"
+        }
+      }
+    },
+    "sandboxLanguage": {
+      "type": "string",
+      "enum": [
+        "c",
+        "cpp",
+        "golang",
+        "java",
+        "python",
+        "rust"
+      ],
+      "default": "c"
+    },
+    "v1sandboxStatus": {
+      "type": "string",
+      "enum": [
+        "AC",
+        "WA",
+        "RE",
+        "TLE",
+        "MLE",
+        "UE"
+      ],
+      "default": "AC"
+    }
+  }
+}

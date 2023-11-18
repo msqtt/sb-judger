@@ -6,9 +6,10 @@ type Compile struct {
 }
 
 type LanguageConfig struct {
-	Pids     uint32 `json:"pids"`
-	Src      string `json:"src"`
-	Out      string `json:"out"`
-	Compile  `json:"compile"`
-	Run      []string `json:"run"`
+	Pids    uint32 `json:"pids"`
+	Src     string `json:"src"`
+	Out     string `json:"out"`
+	Compile `json:"compile"`
+	Run     []string `json:"run"`
+	TrimMsg []string `json:"trimMsg"`
 }

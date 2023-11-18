@@ -9,8 +9,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
+	"unicode"
 
 	pb_jg "github.com/msqtt/sb-judger/api/pb/v1/judger"
 	pb_sb "github.com/msqtt/sb-judger/api/pb/v1/sandbox"
@@ -41,11 +43,16 @@ func (js *JudgerServer) JudgeCode(ctx context.Context, req *pb_jg.JudgeCodeReque
 func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) (
 	*pb_jg.RunCodeResponse, error) {
 	// var err error
-	inputContent := req.GetInput()
 	code := req.GetCode()
 	lang := req.GetLang()
 	time := req.GetTime()
 	mem := req.GetMemory()
+	inputContent := req.GetInput()
+	outMsgLimit := req.GetOutMsgLimit()
+
+  if strings.TrimRightFunc(code, unicode.IsSpace) == "" {
+    return nil, status.Error(codes.InvalidArgument, "code cannot be none")
+  }
 
 	lc := js.langConfMap[lang.String()]
 	if lc == nil {
@@ -70,13 +77,15 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	log.Println(cmd.String())
 	msg, exitCode, err := compile.RunCmdCombinded(cmd)
 	// if compile fails, return error message directly.
-	if exitCode != 0 {
-		errorMsg := strings.ReplaceAll(msg, tempPath, "...")
-		errorMsg = strings.ReplaceAll(errorMsg, strings.Split(tempPath, "/")[2], "...")
+	if exitCode != 0 || err != nil {
+    defer os.RemoveAll(tempPath)
+    r, _ := regexp.Compile("/.[^\\s]*/")
+    msg = r.ReplaceAllString(msg, ".../")
 		log.Println(err)
 		err = nil
-		return &pb_jg.RunCodeResponse{OutPut: errorMsg}, nil
+		return &pb_jg.RunCodeResponse{OutPut: msg}, nil
 	}
+  log.Println(msg, exitCode, err)
 	// chmod 755 for program
 	compileOutPath := filepath.Join(tempPath, lc.Out)
 	err = syscall.Chmod(compileOutPath, 0755)
@@ -109,7 +118,17 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	h.Write([]byte(code))
 	hashName := base64.URLEncoding.EncodeToString(h.Sum(nil))
 	mntPath := path.Join(tempPath, "mnt")
-	collectOut, err := sandbox.InitEntry(lang.String(), hashName, mntPath, mem, time,
+
+  // prepare outputContent limit.
+	var outContentLimit uint32
+	if outMsgLimit <= 0 {
+		outContentLimit = uint32(js.conf.OutLenLimit << 20)
+	} else {
+		outContentLimit = outMsgLimit << 20
+	}
+
+	collectOut, err := sandbox.InitEntry(lang.String(), hashName, mntPath,
+		outContentLimit, mem, time,
 		[]*pb_sb.Case{
 			{
 				CaseId: 1,
@@ -127,7 +146,6 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 		return nil, status.Error(codes.Internal, "failed to collect output")
 	}
 	out := outs[0]
-
 	return &pb_jg.RunCodeResponse{
 		OutPut:      out.OutPut,
 		TimeUsage:   out.TimeUsage,

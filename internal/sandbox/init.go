@@ -21,7 +21,7 @@ import (
 const inteErrCode = 500
 
 // Entry function is the intro of sandbox program.
-func InitEntry(lang, hashName, mntPath string, mem, time uint32, cases []*pb_sb.Case) (
+func InitEntry(lang, hashName, mntPath string, outLimit, mem, time uint32, cases []*pb_sb.Case) (
 	*pb_sb.CollectOutput, error) {
 	langConf, err := json.GetLangConfs("")
 	if err != nil {
@@ -58,19 +58,18 @@ func InitEntry(lang, hashName, mntPath string, mem, time uint32, cases []*pb_sb.
 			return nil, fmt.Errorf("cannot add sub group: %w", err)
 		}
 
-    outPath := filepath.Join("/tmp", lc.Out)
-    // still, lazy codes 🤓
-    runCmd := strings.Join(lc.Run, " ")
-    runCmd = fmt.Sprintf(runCmd, outPath)
-    runCmd = strings.Split(runCmd, "%!")[0]
+		outPath := filepath.Join("/tmp", lc.Out)
+		// still, lazy codes 🤓
+		runCmd := strings.Join(lc.Run, " ")
+		runCmd = fmt.Sprintf(runCmd, outPath)
+		runCmd = strings.Split(runCmd, "%!")[0]
 
 		// passing hashname and input string
-		bytes, code, err := execLaunchProcess(cv, time,
-			mntPath, runCmd, cas.In)
+		bytes, code, err := execLaunchProcess(cv, lc, outLimit, time, mntPath, runCmd, cas.In)
 
-    if code == inteErrCode {
-      return nil, fmt.Errorf("cannot collect sub process: [%w, msg: %s]", err, string(bytes))
-    }
+		if code == inteErrCode {
+			return nil, fmt.Errorf("cannot collect sub process: [%w, msg: %s]", err, string(bytes))
+		}
 
 		// reads resource state after launch process done.
 		usage, err1 := cv.ReadState()
@@ -82,9 +81,7 @@ func InitEntry(lang, hashName, mntPath string, mem, time uint32, cases []*pb_sb.
 		// check status
 		status := getStatus(bytes, code, err, []byte(cas.GetOut()), usage,
 			time, mem)
-		if err != nil {
-			return nil, fmt.Errorf("Case %d failed to check status: [%w]", cas.GetCaseId(), err)
-		}
+
 		// collection result
 		collectOuts[i] = &pb_sb.Output{
 			CaseId:      cas.CaseId,
@@ -99,7 +96,8 @@ func InitEntry(lang, hashName, mntPath string, mem, time uint32, cases []*pb_sb.
 }
 
 // execLaunchProcess exec a process then set the namespaces for it.
-func execLaunchProcess(cv *res.CgroupV2, sec uint32, mntPath, runCmd, inputContent string) (
+func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec uint32, mntPath,
+	runCmd, inputContent string) (
 	[]byte, int, error) {
 	// passing launch arg to execute launch entry parts.
 	cmd, writePipe, err := maskFork()
@@ -108,7 +106,7 @@ func execLaunchProcess(cv *res.CgroupV2, sec uint32, mntPath, runCmd, inputConte
 	}
 
 	// stage1: write args, input content to launch process
-  // and binding stdout and stderr.
+	// and binding stdout and stderr.
 	mes := fmt.Sprintf("%s#%s", mntPath, runCmd)
 	_, err = writePipe.WriteString(mes)
 	if err != nil {
@@ -126,21 +124,16 @@ func execLaunchProcess(cv *res.CgroupV2, sec uint32, mntPath, runCmd, inputConte
 	}
 	stdin.Close()
 
-  // binding stdout and stderr
-  var buf bytes.Buffer
-  cmd.Stdout = &buf
-  cmd.Stderr = &buf
+	// binding stdout and stderr
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
 
 	// stage2: start two goroutine, one for starting son process then wait to it exit,
 	// the other for counting total seconds to kill son process.
 	errChan := make(chan error)
 	exitChan := make(chan int)
 	dataChan := make(chan []byte)
-	defer func() {
-		close(errChan)
-		close(exitChan)
-		close(dataChan)
-	}()
 
 	// start launch process.
 	err = cmd.Start()
@@ -152,14 +145,21 @@ func execLaunchProcess(cv *res.CgroupV2, sec uint32, mntPath, runCmd, inputConte
 	sign := make(chan os.Signal)
 	signal.Notify(sign, syscall.SIGUSR1)
 
-
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
 			errChan <- err
-			exitChan <- inteErrCode
+			exitChan <- 0
 		}
-		dataChan <- buf.Bytes()
+		var outMsg []byte
+		if buf.Len() > int(outLim) {
+			outMsg = make([]byte, outLim)
+			buf.Read(outMsg)
+			outMsg = append(outMsg, []byte("\n...\n")...)
+		} else {
+			outMsg = buf.Bytes()
+		}
+		dataChan <- outMsg
 	}()
 
 	go func() {
@@ -212,7 +212,21 @@ loop:
 	if exitCode != inteErrCode {
 		exitCode = cmd.ProcessState.ExitCode()
 	}
-	return data, exitCode, err
+	return trimMessage(mntPath, data, lc), exitCode, err
+}
+
+// trimMessage delete the message
+func trimMessage(mntPath string, out []byte, lc *json.LanguageConfig) []byte {
+  path := strings.TrimRight(mntPath, "/mnt")
+  out = bytes.ReplaceAll(out, []byte(path), []byte("..."))
+
+	if len(lc.TrimMsg) <= 0 {
+		return out
+	}
+	for _, v := range lc.TrimMsg {
+		out = bytes.ReplaceAll(out, []byte(v), []byte(""))
+	}
+	return out
 }
 
 func getStatus(outCont []byte, code int, outErr error, ans []byte,
