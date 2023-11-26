@@ -50,9 +50,9 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	inputContent := req.GetInput()
 	outMsgLimit := req.GetOutMsgLimit()
 
-  if strings.TrimRightFunc(code, unicode.IsSpace) == "" {
-    return nil, status.Error(codes.InvalidArgument, "code cannot be none")
-  }
+	if strings.TrimRightFunc(code, unicode.IsSpace) == "" {
+		return nil, status.Error(codes.InvalidArgument, "code cannot be none")
+	}
 
 	lc := js.langConfMap[lang.String()]
 	if lc == nil {
@@ -78,14 +78,13 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	msg, exitCode, err := compile.RunCmdCombinded(cmd)
 	// if compile fails, return error message directly.
 	if exitCode != 0 || err != nil {
-    defer os.RemoveAll(tempPath)
-    r, _ := regexp.Compile("/.[^\\s]*/")
-    msg = r.ReplaceAllString(msg, ".../")
+		defer os.RemoveAll(tempPath)
+		r, _ := regexp.Compile("/.[^\\s]*/")
+		msg = r.ReplaceAllString(msg, ".../")
 		log.Println(err)
 		err = nil
 		return &pb_jg.RunCodeResponse{OutPut: msg}, nil
 	}
-  log.Println(msg, exitCode, err)
 	// chmod 755 for program
 	compileOutPath := filepath.Join(tempPath, lc.Out)
 	err = syscall.Chmod(compileOutPath, 0755)
@@ -119,12 +118,12 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	hashName := base64.URLEncoding.EncodeToString(h.Sum(nil))
 	mntPath := path.Join(tempPath, "mnt")
 
-  // prepare outputContent limit.
+	// prepare outputContent limit.
 	var outContentLimit uint32
 	if outMsgLimit <= 0 {
-		outContentLimit = uint32(js.conf.OutLenLimit << 20)
+		outContentLimit = uint32(js.conf.OutLenLimit << 10)
 	} else {
-		outContentLimit = outMsgLimit << 20
+		outContentLimit = outMsgLimit << 10
 	}
 
 	collectOut, err := sandbox.InitEntry(lang.String(), hashName, mntPath,

@@ -4,6 +4,7 @@
     <title>🤪 Run Code Dev Web Editor</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="/tabIndent.js"></script>
     <style>
       .codeInput {
         font: 1.2rem "Fira Code", monospace;
@@ -40,8 +41,8 @@
         <input id="memory" type="text" name="memory" value="64" required size="8">&emsp;
         <label for="time">Time limit(ms): </label>
         <input id="time" type="text" name="time" value="1000" required size="8">&emsp;
-        <label for="outLim">Output Limit (mb): </label>
-        <input id="outLim" type="text" name="outMsgLimit" value="1" size="8">&emsp;
+        <label for="outLim">Output Limit (kb): </label>
+        <input id="outLim" type="text" name="outMsgLimit" value="512" size="8">&emsp;
 
         <span id="runBtn">
           <button>Run</button>
@@ -66,7 +67,11 @@
   </body>
   <script>
     const form = document.querySelector("form")
+    const editor = document.querySelector("#editor")
     const out = document.querySelector("#out")
+    tabIndent.config.tab = '  ';
+    tabIndent.render(editor);
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const formData = new FormData(event.target);

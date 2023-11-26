@@ -127,7 +127,7 @@
         "outMsgLimit": {
           "type": "integer",
           "format": "int64",
-          "title": "限定输出内容大小(单位: mb)"
+          "title": "限定输出内容大小(单位: kb)"
         },
         "case": {
           "type": "array",
@@ -185,7 +185,7 @@
         "outMsgLimit": {
           "type": "integer",
           "format": "int64",
-          "title": "限定输出内容大小(单位: mb)"
+          "title": "限定输出内容大小(单位: kb)"
         }
       }
     },

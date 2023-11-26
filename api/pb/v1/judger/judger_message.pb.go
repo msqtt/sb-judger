@@ -36,7 +36,7 @@ type RunCodeRequest struct {
 	Time uint32 `protobuf:"varint,4,opt,name=time,proto3" json:"time,omitempty"`
 	// 限定程序使用内存(单位: mb)
 	Memory uint32 `protobuf:"varint,5,opt,name=memory,proto3" json:"memory,omitempty"`
-	// 限定输出内容大小(单位: mb)
+	// 限定输出内容大小(单位: kb)
 	OutMsgLimit uint32 `protobuf:"varint,6,opt,name=out_msg_limit,json=outMsgLimit,proto3" json:"out_msg_limit,omitempty"`
 }
 
@@ -193,7 +193,7 @@ type JudgeCodeRequest struct {
 	Time uint32 `protobuf:"varint,3,opt,name=time,proto3" json:"time,omitempty"`
 	// 限定程序使用内存(单位: mb)
 	Memory uint32 `protobuf:"varint,4,opt,name=memory,proto3" json:"memory,omitempty"`
-	// 限定输出内容大小(单位: mb)
+	// 限定输出内容大小(单位: kb)
 	OutMsgLimit uint32          `protobuf:"varint,6,opt,name=out_msg_limit,json=outMsgLimit,proto3" json:"out_msg_limit,omitempty"`
 	Case        []*sandbox.Case `protobuf:"bytes,5,rep,name=case,proto3" json:"case,omitempty"`
 }

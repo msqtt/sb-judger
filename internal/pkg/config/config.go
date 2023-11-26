@@ -11,7 +11,7 @@ type Config struct {
 	EncryCrtPath string `mapstructure:"ENCRY_CRT_PATH"`
 	EncryKeyPath string `mapstructure:"ENCRY_KEY_PATH"`
 	EnableWeb    bool   `mapstructure:"DEVWEB_ENABLED"`
-	// bytes' length
+	// bytes' length (kb)
 	OutLenLimit int `mapstructure:"DEFAULT_OUTPUT_LENGTH_LIMIT"`
 }
 

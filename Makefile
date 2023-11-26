@@ -2,7 +2,7 @@
 sb-judger: sandbox cmd/judger/main.go
 	go build -ldflags="-w -s" -o sb-judger cmd/judger/main.go
 
-sandbox: cmd/sandbox/main.go rootfs
+sandbox: cmd/sandbox/main.go
 	go build -ldflags="-w -s" -o sandbox cmd/sandbox/main.go
 
 clean:
@@ -12,7 +12,7 @@ docker: build/Dockerfile rootfs
 	 docker build -f build/Dockerfile -t msqt/sb-judger:dev .
 
 rootfs: build/tarball.Dockerfile
-	docker build -f build/tarball.Dockerfile -t msqt/rootfs-tarball:dev .
+	# docker build -f build/tarball.Dockerfile -t msqt/rootfs-tarball:dev .
 	mkdir rootfs
 	docker create msqt/rootfs-tarball:dev | xargs docker export | tar -C rootfs -xf -
 	rm -rf ./rootfs/.dockerenv ./rootfs/var/* ./rootfs/dev/*

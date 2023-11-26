@@ -18,7 +18,7 @@ message RunCodeRequest {
 	uint32 time = 4;	
 	// 限定程序使用内存(单位: mb)
 	uint32 memory = 5;
-	// 限定输出内容大小(单位: mb)
+	// 限定输出内容大小(单位: kb)
   uint32 out_msg_limit = 6;
 }
 
@@ -40,7 +40,7 @@ message JudgeCodeRequest {
 	uint32 time = 3;	
 	// 限定程序使用内存(单位: mb)
 	uint32 memory = 4;
-	// 限定输出内容大小(单位: mb)
+	// 限定输出内容大小(单位: kb)
   uint32 out_msg_limit = 6;
 	repeated sandbox.Case case = 5;
 }

@@ -20,6 +20,12 @@ import (
 
 const inteErrCode = 500
 
+type processResult struct {
+	outPut   []byte
+	exitCode int
+	err      error
+}
+
 // Entry function is the intro of sandbox program.
 func InitEntry(lang, hashName, mntPath string, outLimit, mem, time uint32, cases []*pb_sb.Case) (
 	*pb_sb.CollectOutput, error) {
@@ -131,9 +137,8 @@ func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec ui
 
 	// stage2: start two goroutine, one for starting son process then wait to it exit,
 	// the other for counting total seconds to kill son process.
-	errChan := make(chan error)
-	exitChan := make(chan int)
-	dataChan := make(chan []byte)
+
+	retCh := make(chan processResult)
 
 	// start launch process.
 	err = cmd.Start()
@@ -147,11 +152,8 @@ func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec ui
 
 	go func() {
 		err := cmd.Wait()
-		if err != nil {
-			errChan <- err
-			exitChan <- 0
-		}
 		var outMsg []byte
+		// erase outrange messages.
 		if buf.Len() > int(outLim) {
 			outMsg = make([]byte, outLim)
 			buf.Read(outMsg)
@@ -159,44 +161,61 @@ func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec ui
 		} else {
 			outMsg = buf.Bytes()
 		}
-		dataChan <- outMsg
+		retCh <- processResult{
+			outPut:   outMsg,
+			exitCode: cmd.ProcessState.ExitCode(),
+			err:      err,
+		}
 	}()
 
 	go func() {
 		// sleep total seconds
-		for i := 0; i < int(sec*10); i++ {
+		for i := 0; i < int(sec/100); i++ {
 			err = sleep.NanoSleep(100)
 			if err != nil {
-				errChan <- err
-				exitChan <- inteErrCode
-				dataChan <- []byte("cannot usleep")
+				retCh <- processResult{
+					outPut:   []byte("cannot usleep"),
+					exitCode: inteErrCode,
+					err:      err,
+				}
 				return
 			}
 		}
-		errChan <- os.ErrDeadlineExceeded
-		dataChan <- []byte("time limit exceeded")
+		retCh <- processResult{
+			outPut:   []byte("time limit exceeded"),
+			exitCode: 1,
+			err:      os.ErrDeadlineExceeded,
+		}
 	}()
 
-	var data []byte
-	var exitCode int
 
+  var ret processResult
 loop:
 	// one round for signal coming, the other for checking that
 	// process successfully exited or exceed time to be killed
 	// or bad things happened.
 	for i := 0; i < 2; i++ {
 		select {
-
-		// case: any errors happen
-		case err = <-errChan:
-			// kill pgroup
-			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-			exitCode = <-exitChan
-			data = <-dataChan
-			break loop
-
-		// case: process sucessfully exists
-		case data = <-dataChan:
+		case ret = <-retCh:
+			// case: internal err happens
+			if ret.exitCode == inteErrCode {
+				err := cmd.Process.Kill()
+				if err != nil {
+					ret.err = fmt.Errorf("cannot kill process: %w", ret.err)
+				}
+				return ret.outPut, ret.exitCode, ret.err
+			}
+			// case: program exceeds time limit.
+			if ret.err == os.ErrDeadlineExceeded {
+				err := cmd.Process.Kill()
+				if err != nil {
+					ret.err = fmt.Errorf("cannot kill process: %w", ret.err)
+				}
+        // collect wait output
+        retWait := <-retCh
+        ret.outPut = append(retWait.outPut, ret.outPut...)
+			}
+			// case: program exists successfully.
 			break loop
 
 		case <-sign:
@@ -205,20 +224,17 @@ loop:
 			if err != nil {
 				return nil, inteErrCode, fmt.Errorf("cannot apply cgroups for sub process: %w", err)
 			}
-			// after adding telling sub process is ok to run code program.
+			// tell sub process is ok to run code program after adding.
 			syscall.Kill(cmd.Process.Pid, syscall.SIGUSR1)
 		}
 	}
-	if exitCode != inteErrCode {
-		exitCode = cmd.ProcessState.ExitCode()
-	}
-	return trimMessage(mntPath, data, lc), exitCode, err
+	return trimMessage(mntPath, ret.outPut, lc), ret.exitCode, ret.err
 }
 
 // trimMessage delete the message
 func trimMessage(mntPath string, out []byte, lc *json.LanguageConfig) []byte {
-  path := strings.TrimRight(mntPath, "/mnt")
-  out = bytes.ReplaceAll(out, []byte(path), []byte("..."))
+	path := strings.TrimRight(mntPath, "/mnt")
+	out = bytes.ReplaceAll(out, []byte(path), []byte("..."))
 
 	if len(lc.TrimMsg) <= 0 {
 		return out
