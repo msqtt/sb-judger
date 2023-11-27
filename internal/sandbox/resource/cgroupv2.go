@@ -59,15 +59,15 @@ func init() {
 		// stage1: make a temp cgroup
 		err = os.Mkdir(tmpPath, 0644)
 		if err != nil {
-			if !errors.Is(err, fs.ErrExist)  {
+			if !errors.Is(err, fs.ErrExist) {
 				err = fmt.Errorf("cannot make temp cgroup: %w", err)
 				panic(err)
 			}
 		}
 		// stage2: move root cgroup's pids to temp one.
-    // if you start this program in a container and the first running process is itself
-    // that might be no problem, other cases would cause panic deal to invalid arguments.
-    // todo 💩
+		// if you start this program in a container and the first running process is itself
+		// that might be no problem, other cases would cause panic deal to invalid arguments.
+		// todo 💩
 		err = os.WriteFile(tmpProcPath, b2, 0644)
 		if err != nil {
 			err = fmt.Errorf("cannot mv pid to temp cgroup: %w", err)
@@ -118,10 +118,12 @@ func (cg *CgroupV2) Config(config *ResourceConfig) error {
 	// memory limit
 	memorys := []string{
 		"memory.max", "memory.high", "memory.swap.high", "memory.swap.max"}
+	memLimit := int(config.MemoryLimit << 20)
+	memByte := []byte(strconv.Itoa(memLimit))
+
 	for _, mem := range memorys {
 		filePath := filepath.Join(cg.path, mem)
-		memLimit := int(config.MemoryLimit << 20)
-		err := ioutil.WriteFile(filePath, []byte(strconv.Itoa(memLimit)), 0644)
+		err := ioutil.WriteFile(filePath, memByte, 0644)
 		if err != nil {
 			return fmt.Errorf("cannot write limit for %s: [%w]", mem, err)
 		}
@@ -159,7 +161,7 @@ func (cg *CgroupV2) ReadState() (*RunState, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot readfile memory.peak: %w", err)
 	}
-	rs.MemoryUsage = uint32(memUsc >> 20)
+	rs.MemoryUsage = uint32(memUsc)
 
 	byte, err = os.ReadFile(filepath.Join(cg.path, "memory.events"))
 	if err != nil {
@@ -168,7 +170,7 @@ func (cg *CgroupV2) ReadState() (*RunState, error) {
 	eventStat, err := makeStatMap(byte)
 	rs.OOMKill = eventStat["oom_kill"]
 
-	return rs, nil
+	return rs, err
 }
 
 func makeStatMap(byte []byte) (map[string]uint32, error) {

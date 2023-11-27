@@ -42,7 +42,6 @@ func (js *JudgerServer) JudgeCode(ctx context.Context, req *pb_jg.JudgeCodeReque
 // RunCode implements pb_jg.CodeServer.
 func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) (
 	*pb_jg.RunCodeResponse, error) {
-	// var err error
 	code := req.GetCode()
 	lang := req.GetLang()
 	time := req.GetTime()
@@ -145,10 +144,12 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 		return nil, status.Error(codes.Internal, "failed to collect output")
 	}
 	out := outs[0]
+	log.Println(out.Status.String())
 	return &pb_jg.RunCodeResponse{
-		OutPut:      out.OutPut,
-		TimeUsage:   out.TimeUsage,
-		MemoryUsage: out.MemoryUsage,
+		OutPut:        out.OutPut,
+		CpuTimeUsage:  float32(out.CpuTimeUsage) / 1000,
+		RealTimeUsage: float32(out.RealTimeUsage) / 1000,
+		MemoryUsage:   float32(out.MemoryUsage) / 1024,
 	}, nil
 }
 

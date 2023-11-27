@@ -1,6 +1,7 @@
 package res
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
@@ -16,6 +17,41 @@ import (
 )
 
 var hashPath = hex.EncodeToString(sha1.New().Sum([]byte("testhashpath")))
+
+func TestCgroupConfig(t *testing.T) {
+	cgroupv2, err := NewCgroupV2(hashPath)
+	require.NoError(t, err)
+	require.NotEmpty(t, cgroupv2)
+
+	defer func() {
+		err = cgroupv2.Destroy()
+		require.NoError(t, err)
+	}()
+
+	testreadPath(t, cgroupv2.path)
+
+	config := &ResourceConfig{
+		CpuLimit:    100000,
+		MemoryLimit: 100,
+		PidsLimit:   1,
+	}
+
+	err = cgroupv2.Config(config)
+	require.NoError(t, err)
+
+	memorys := []string{
+		"memory.max", "memory.high", "memory.swap.high", "memory.swap.max"}
+
+	memLimit := int(config.MemoryLimit << 20)
+  memByte := []byte(strconv.Itoa(memLimit))
+	for _, mem := range memorys {
+		filePath := filepath.Join(cgroupv2.path, mem)
+		b, err2 := ioutil.ReadFile(filePath)
+		require.NotEmpty(t, b)
+		require.NoError(t, err2)
+		require.ElementsMatch(t, bytes.TrimSpace(b), memByte)
+	}
+}
 
 func TestCgroupV2CRD(t *testing.T) {
 	cgroupv2, err := NewCgroupV2(hashPath)

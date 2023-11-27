@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -27,7 +28,7 @@ func LaunchEntry() (err error) {
     runCmd = cmdArgs[0]
   }
 
-	// stage2: mount to mark
+	// stage2: mount to mask
   err = fs.ChrootMaskPath(mntPath)
 	if err != nil {
 		return
@@ -35,16 +36,20 @@ func LaunchEntry() (err error) {
 
   // chdir to workspace
   syscall.Chdir("/tmp")
-  // set rootless to process
-	syscall.Setgid(65534)
-	syscall.Setgroups([]int{65534})
-	syscall.Setuid(65534)
 
 	// stage3: send a start signal to parent process then wait to exec to binary program.
 	// telling parent process im ready.
 	sign := make(chan os.Signal)
 	signal.Notify(sign, syscall.SIGUSR1)
-	syscall.Kill(os.Getppid(), syscall.SIGUSR1)
+	err2 := syscall.Kill(os.Getppid(), syscall.SIGUSR1)
+  if err2 != nil {
+    log.Fatal(err2)
+  }
+
+  // set rootless to process
+  syscall.Setgid(65534)
+  syscall.Setgroups([]int{65534})
+  syscall.Setuid(65534)
 
 	// waiting for parent's signal then launch code program.
 	<-sign

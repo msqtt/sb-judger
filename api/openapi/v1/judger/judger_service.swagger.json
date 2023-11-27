@@ -148,12 +148,12 @@
         "totalTimeUsage": {
           "type": "integer",
           "format": "int64",
-          "title": "程序使用总时间"
+          "title": "程序使用总时间(us)"
         },
         "totalMemoryUsage": {
           "type": "integer",
           "format": "int64",
-          "title": "程序使用总内存"
+          "title": "程序使用总内存(byte)"
         }
       }
     },
@@ -196,15 +196,20 @@
           "type": "string",
           "title": "程序输出"
         },
-        "timeUsage": {
-          "type": "integer",
-          "format": "int64",
-          "title": "程序耗时"
+        "cpuTimeUsage": {
+          "type": "number",
+          "format": "float",
+          "title": "程序运行Cpu耗时(ms)"
+        },
+        "realTimeUsage": {
+          "type": "number",
+          "format": "float",
+          "title": "程序运行总耗时(ms)"
         },
         "memoryUsage": {
-          "type": "integer",
-          "format": "int64",
-          "title": "程序使用内存"
+          "type": "number",
+          "format": "float",
+          "title": "程序使用内存(kb)"
         }
       }
     },

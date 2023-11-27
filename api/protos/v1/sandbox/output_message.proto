@@ -7,10 +7,11 @@ import "sandbox/status_enum.proto";
 
 message Output {
 	uint32 case_id = 1;
-	uint32 time_usage = 2;
-	uint32 memory_usage = 3;
-	Status status = 4;
-	string out_put = 5;
+	uint32 cpu_time_usage = 2;
+	uint32 real_time_usage = 3;
+	uint32 memory_usage = 4;
+	Status status = 5;
+	string out_put = 6;
 }
 
 message CollectOutput {

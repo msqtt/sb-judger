@@ -42,7 +42,7 @@
         <label for="time">Time limit(ms): </label>
         <input id="time" type="text" name="time" value="1000" required size="8">&emsp;
         <label for="outLim">Output Limit (kb): </label>
-        <input id="outLim" type="text" name="outMsgLimit" value="512" size="8">&emsp;
+        <input id="outLim" type="text" name="outMsgLimit" value="1" size="8">&emsp;
 
         <span id="runBtn">
           <button>Run</button>
@@ -86,8 +86,11 @@
       console.log(resp);
       if (resp.ok) {
         const data = await resp.json();
-        out.value = data.outPut + "\n\n====================\nTimeUsage:"+
-        data.timeUsage + "\nMemoryUsage:" + data.memoryUsage;
+        console.log(data);
+        out.value = data.outPut +
+        "\n\n====================\nCpuTimeUsage: " + data.cpuTimeUsage + " (ms)" +
+        "\nRealTimeUsage: " + data.realTimeUsage + " (ms)" +
+        "\nMemoryUsage: " + data.memoryUsage + " (kb)";
       } else {
         const data = await resp.text();
         out.value = data;

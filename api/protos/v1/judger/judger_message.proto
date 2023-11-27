@@ -25,10 +25,12 @@ message RunCodeRequest {
 message RunCodeResponse {
 	// 程序输出
 	string out_put = 1;
-	// 程序耗时
-	uint32 time_usage = 2;
-	// 程序使用内存
-	uint32 memory_usage = 3;
+	// 程序运行Cpu耗时(ms)
+	float cpu_time_usage = 2;
+	// 程序运行总耗时(ms)
+	float real_time_usage = 3;
+	// 程序使用内存(kb)
+	float memory_usage = 4;
 }
 
 message JudgeCodeRequest {
@@ -48,8 +50,8 @@ message JudgeCodeRequest {
 message JudgeCodeResponse {
   // 程序状态
 	sandbox.Status status = 1;
-	// 程序使用总时间
+	// 程序使用总时间(us)
 	uint32 total_time_usage = 2;
-	// 程序使用总内存
+	// 程序使用总内存(byte)
 	uint32 total_memory_usage = 3;
 }

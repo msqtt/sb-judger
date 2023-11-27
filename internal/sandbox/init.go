@@ -4,18 +4,20 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 	"unicode"
 
 	pb_sb "github.com/msqtt/sb-judger/api/pb/v1/sandbox"
 	"github.com/msqtt/sb-judger/internal/pkg/json"
-	"github.com/msqtt/sb-judger/internal/pkg/sleep"
 	res "github.com/msqtt/sb-judger/internal/sandbox/resource"
+	"golang.org/x/sys/unix"
 )
 
 const inteErrCode = 500
@@ -71,7 +73,7 @@ func InitEntry(lang, hashName, mntPath string, outLimit, mem, time uint32, cases
 		runCmd = strings.Split(runCmd, "%!")[0]
 
 		// passing hashname and input string
-		bytes, code, err := execLaunchProcess(cv, lc, outLimit, time, mntPath, runCmd, cas.In)
+		bytes, code, realTime, err := execLaunchProcess(cv, lc, outLimit, time, mntPath, runCmd, cas.In)
 
 		if code == inteErrCode {
 			return nil, fmt.Errorf("cannot collect sub process: [%w, msg: %s]", err, string(bytes))
@@ -80,21 +82,21 @@ func InitEntry(lang, hashName, mntPath string, outLimit, mem, time uint32, cases
 		// reads resource state after launch process done.
 		usage, err1 := cv.ReadState()
 		if err1 != nil {
-			return nil, fmt.Errorf("cannot read states from case %d process: %w", cas.GetCaseId(),
-				err)
+			return nil, fmt.Errorf("cannot read states from case %d process: %w", cas.GetCaseId(), err)
 		}
 
 		// check status
-		status := getStatus(bytes, code, err, []byte(cas.GetOut()), usage,
+		status := checkStatus(bytes, code, err, []byte(cas.GetOut()), usage,
 			time, mem)
 
 		// collection result
 		collectOuts[i] = &pb_sb.Output{
-			CaseId:      cas.CaseId,
-			TimeUsage:   usage.CpuTime,
-			MemoryUsage: usage.MemoryUsage,
-			Status:      status,
-			OutPut:      string(bytes),
+			CaseId:        cas.CaseId,
+			CpuTimeUsage:  usage.CpuTime,
+			RealTimeUsage: uint32(realTime),
+			MemoryUsage:   usage.MemoryUsage,
+			Status:        status,
+			OutPut:        string(bytes),
 		}
 	}
 
@@ -104,11 +106,11 @@ func InitEntry(lang, hashName, mntPath string, outLimit, mem, time uint32, cases
 // execLaunchProcess exec a process then set the namespaces for it.
 func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec uint32, mntPath,
 	runCmd, inputContent string) (
-	[]byte, int, error) {
+	[]byte, int, int, error) {
 	// passing launch arg to execute launch entry parts.
 	cmd, writePipe, err := maskFork()
 	if err != nil {
-		return nil, inteErrCode, err
+		return nil, inteErrCode, 0, err
 	}
 
 	// stage1: write args, input content to launch process
@@ -116,17 +118,17 @@ func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec ui
 	mes := fmt.Sprintf("%s#%s", mntPath, runCmd)
 	_, err = writePipe.WriteString(mes)
 	if err != nil {
-		return nil, inteErrCode, fmt.Errorf("cannot write pipe: %w", err)
+		return nil, inteErrCode, 0, fmt.Errorf("cannot write pipe: %w", err)
 	}
 	writePipe.Close()
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, inteErrCode, fmt.Errorf("cannot get stdin: %w", err)
+		return nil, inteErrCode, 0, fmt.Errorf("cannot get stdin: %w", err)
 	}
 	_, err = stdin.Write([]byte(inputContent))
 	if err != nil {
-		return nil, inteErrCode, fmt.Errorf("cannot write input content to stdin: %w", err)
+		return nil, inteErrCode, 0, fmt.Errorf("cannot write input content to stdin: %w", err)
 	}
 	stdin.Close()
 
@@ -143,12 +145,8 @@ func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec ui
 	// start launch process.
 	err = cmd.Start()
 	if err != nil {
-		return nil, inteErrCode, fmt.Errorf("cannot start sub process: %w", err)
+		return nil, inteErrCode, 0, fmt.Errorf("cannot start sub process: %w", err)
 	}
-
-	// waiting for launch process's start signal then add its pid to cgroups
-	sign := make(chan os.Signal)
-	signal.Notify(sign, syscall.SIGUSR1)
 
 	go func() {
 		err := cmd.Wait()
@@ -168,28 +166,14 @@ func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec ui
 		}
 	}()
 
-	go func() {
-		// sleep total seconds
-		for i := 0; i < int(sec/100); i++ {
-			err = sleep.NanoSleep(100)
-			if err != nil {
-				retCh <- processResult{
-					outPut:   []byte("cannot usleep"),
-					exitCode: inteErrCode,
-					err:      err,
-				}
-				return
-			}
-		}
-		retCh <- processResult{
-			outPut:   []byte("time limit exceeded"),
-			exitCode: 1,
-			err:      os.ErrDeadlineExceeded,
-		}
-	}()
+	// waiting for launch process's start signal then add its pid to cgroups
+	sign := make(chan os.Signal)
+	signal.Notify(sign, syscall.SIGUSR1)
 
-
-  var ret processResult
+	var ret processResult
+	var startAt time.Time
+	var endAt time.Time
+	var realTime int
 loop:
 	// one round for signal coming, the other for checking that
 	// process successfully exited or exceed time to be killed
@@ -197,13 +181,15 @@ loop:
 	for i := 0; i < 2; i++ {
 		select {
 		case ret = <-retCh:
+			endAt = time.Now()
+			realTime = int(endAt.Sub(startAt).Microseconds())
 			// case: internal err happens
 			if ret.exitCode == inteErrCode {
 				err := cmd.Process.Kill()
 				if err != nil {
 					ret.err = fmt.Errorf("cannot kill process: %w", ret.err)
 				}
-				return ret.outPut, ret.exitCode, ret.err
+				return ret.outPut, ret.exitCode, realTime, ret.err
 			}
 			// case: program exceeds time limit.
 			if ret.err == os.ErrDeadlineExceeded {
@@ -211,24 +197,53 @@ loop:
 				if err != nil {
 					ret.err = fmt.Errorf("cannot kill process: %w", ret.err)
 				}
-        // collect wait output
-        retWait := <-retCh
-        ret.outPut = append(retWait.outPut, ret.outPut...)
+				// collect wait output
+				retWait := <-retCh
+				ret.outPut = append(retWait.outPut, ret.outPut...)
 			}
 			// case: program exists successfully.
 			break loop
 
 		case <-sign:
+			// set pid and cgroup namespace for sub process.
+
+			err := setNsFor(cmd.Process.Pid, unix.CLONE_NEWPID)
+			if err != nil {
+				err = fmt.Errorf("cannot setns for sub process: %w", err)
+				err2 := cmd.Process.Kill()
+				if err2 != nil {
+					log.Println(err2)
+					err = fmt.Errorf("cannot kill process: %w", err)
+				}
+				return nil, inteErrCode, realTime, err
+			}
 			// start to adding pid to cgroups
 			err = cv.Apply(cmd.Process.Pid)
 			if err != nil {
-				return nil, inteErrCode, fmt.Errorf("cannot apply cgroups for sub process: %w", err)
+				err = fmt.Errorf("cannot apply cgroups for sub process: %w", err)
+				err2 := cmd.Process.Kill()
+				if err2 != nil {
+					log.Println(err2)
+					err = fmt.Errorf("cannot kill process: %w", err)
+				}
+				return nil, inteErrCode, 0, err
 			}
-			// tell sub process is ok to run code program after adding.
+      // set timer to watch
+			go func() {
+				// sleep total seconds
+				startAt = time.Now()
+				time.Sleep(time.Duration(sec) * time.Millisecond)
+				retCh <- processResult{
+					outPut:   []byte("time limit exceeded"),
+					exitCode: 1,
+					err:      os.ErrDeadlineExceeded,
+				}
+			}()
+			// tell sub process it is ok to run program after adding.
 			syscall.Kill(cmd.Process.Pid, syscall.SIGUSR1)
 		}
 	}
-	return trimMessage(mntPath, ret.outPut, lc), ret.exitCode, ret.err
+	return trimMessage(mntPath, ret.outPut, lc), ret.exitCode, realTime, ret.err
 }
 
 // trimMessage delete the message
@@ -245,28 +260,27 @@ func trimMessage(mntPath string, out []byte, lc *json.LanguageConfig) []byte {
 	return out
 }
 
-func getStatus(outCont []byte, code int, outErr error, ans []byte,
+func checkStatus(outCont []byte, code int, outErr error, ans []byte,
 	usage *res.RunState, timeLimit, memLimit uint32) pb_sb.Status {
 	// trim right space (is it needed ?)
 	outCont = bytes.TrimRightFunc(outCont, unicode.IsSpace)
 	ans = bytes.TrimRightFunc(ans, unicode.IsSpace)
 
-	if usage.CpuTime > timeLimit {
+	if usage.CpuTime/1000 > timeLimit {
 		return pb_sb.Status_TLE
 	}
-	if usage.MemoryUsage > memLimit {
+	if usage.MemoryUsage > memLimit<<20 {
 		return pb_sb.Status_MLE
 	}
 	if usage.OOMKill > 0 {
 		return pb_sb.Status_MLE
 	}
 
+	if errors.Is(outErr, os.ErrDeadlineExceeded) {
+		return pb_sb.Status_TLE
+	}
+
 	switch code {
-	case -1:
-		if errors.Is(outErr, os.ErrDeadlineExceeded) {
-			return pb_sb.Status_TLE
-		}
-		return pb_sb.Status_UE
 	case 0:
 		// diff between answer and user printout.
 		if bytes.Compare(outCont, ans) == 0 {
