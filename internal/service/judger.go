@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/base64"
 	"errors"
 	"log"
 	"os"
@@ -14,6 +12,7 @@ import (
 	"syscall"
 	"unicode"
 
+	gonanoid "github.com/matoous/go-nanoid/v2"
 	pb_jg "github.com/msqtt/sb-judger/api/pb/v1/judger"
 	pb_sb "github.com/msqtt/sb-judger/api/pb/v1/sandbox"
 	"github.com/msqtt/sb-judger/internal/compile"
@@ -53,13 +52,13 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 		return nil, status.Error(codes.InvalidArgument, "code cannot be none")
 	}
 
-  if time > 2000 || time < 0 {
+	if time > 2000 || time < 0 {
 		return nil, status.Error(codes.InvalidArgument, "time limit should be in [0, 2000]")
-  }
+	}
 
-  if mem > 256 || mem < 1 {
+	if mem > 256 || mem < 1 {
 		return nil, status.Error(codes.InvalidArgument, "memory limit should be in [1, 256]")
-  }
+	}
 
 	lc := js.langConfMap[lang.String()]
 	if lc == nil {
@@ -120,9 +119,7 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	}
 
 	// stage3: run process
-	h := sha1.New()
-	h.Write([]byte(code))
-	hashName := base64.URLEncoding.EncodeToString(h.Sum(nil))
+  id, err := gonanoid.New()
 	mntPath := path.Join(tempPath, "mnt")
 
 	// prepare outputContent limit.
@@ -133,7 +130,7 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 		outContentLimit = outMsgLimit << 10
 	}
 
-	collectOut, err := sandbox.InitEntry(lang.String(), hashName, mntPath,
+	collectOut, err := sandbox.InitEntry(lang.String(), id, mntPath,
 		outContentLimit, mem, time,
 		[]*pb_sb.Case{
 			{

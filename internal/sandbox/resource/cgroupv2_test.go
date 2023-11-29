@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var hashPath = hex.EncodeToString(sha1.New().Sum([]byte("testhashpath")))
+var idPath = hex.EncodeToString(sha1.New().Sum([]byte("testhashpath")))
 
 func TestCgroupConfig(t *testing.T) {
-	cgroupv2, err := NewCgroupV2(hashPath)
+	cgroupv2, err := NewCgroupV2(idPath)
 	require.NoError(t, err)
 	require.NotEmpty(t, cgroupv2)
 
@@ -54,7 +54,7 @@ func TestCgroupConfig(t *testing.T) {
 }
 
 func TestCgroupV2CRD(t *testing.T) {
-	cgroupv2, err := NewCgroupV2(hashPath)
+	cgroupv2, err := NewCgroupV2(idPath)
 	require.NoError(t, err)
 	require.NotEmpty(t, cgroupv2)
 
@@ -102,7 +102,7 @@ func TestCgroupV2CRD(t *testing.T) {
 }
 
 func TestCgroupV2Apply(t *testing.T) {
-	cgroupv2, err := NewCgroupV2(hashPath)
+	cgroupv2, err := NewCgroupV2(idPath)
 	require.NoError(t, err)
 	require.NotEmpty(t, cgroupv2)
 

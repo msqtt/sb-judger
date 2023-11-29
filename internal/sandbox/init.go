@@ -29,7 +29,7 @@ type processResult struct {
 }
 
 // Entry function is the intro of sandbox program.
-func InitEntry(lang, hashName, mntPath string, outLimit, mem, time uint32, cases []*pb_sb.Case) (
+func InitEntry(lang, id, mntPath string, outLimit, mem, time uint32, cases []*pb_sb.Case) (
 	*pb_sb.CollectOutput, error) {
 	langConf, err := json.GetLangConfs("")
 	if err != nil {
@@ -41,7 +41,7 @@ func InitEntry(lang, hashName, mntPath string, outLimit, mem, time uint32, cases
 		return nil, errors.New("not supported language")
 	}
 
-	resManager, err := res.NewCgroupV2(hashName)
+	resManager, err := res.NewCgroupV2(id)
 	if err != nil {
 		return nil, fmt.Errorf("cannot new cgroupv2: %w", err)
 	}
@@ -72,7 +72,7 @@ func InitEntry(lang, hashName, mntPath string, outLimit, mem, time uint32, cases
 		runCmd = fmt.Sprintf(runCmd, outPath)
 		runCmd = strings.Split(runCmd, "%!")[0]
 
-		// passing hashname and input string
+		// passing id and input string
 		bytes, code, realTime, err := execLaunchProcess(cv, lc, outLimit, time, mntPath, runCmd, cas.In)
 
 		if code == inteErrCode {
