@@ -155,7 +155,9 @@ func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec ui
 		if buf.Len() > int(outLim) {
 			outMsg = make([]byte, outLim)
 			buf.Read(outMsg)
-			outMsg = append(outMsg, []byte("\n...\n")...)
+			// fix utf-8 inter split
+			r := bytes.Runes(outMsg)
+			outMsg = append([]byte(string(r)), []byte("\n...\n")...)
 		} else {
 			outMsg = buf.Bytes()
 		}
@@ -228,7 +230,7 @@ loop:
 				}
 				return nil, inteErrCode, 0, err
 			}
-      // set timer to watch
+			// set timer to watch
 			go func() {
 				// sleep total seconds
 				startAt = time.Now()
