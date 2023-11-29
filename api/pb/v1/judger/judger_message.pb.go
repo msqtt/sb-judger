@@ -32,9 +32,9 @@ type RunCodeRequest struct {
 	Code string `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
 	// 程序输入内容
 	Input string `protobuf:"bytes,3,opt,name=input,proto3" json:"input,omitempty"`
-	// 限定运行时间(单位: ms)
+	// 限定运行时间(单位: ms [0, 2000])
 	Time uint32 `protobuf:"varint,4,opt,name=time,proto3" json:"time,omitempty"`
-	// 限定程序使用内存(单位: mb)
+	// 限定程序使用内存(单位: mb [1, 256])
 	Memory uint32 `protobuf:"varint,5,opt,name=memory,proto3" json:"memory,omitempty"`
 	// 限定输出内容大小(单位: kb)
 	OutMsgLimit uint32 `protobuf:"varint,6,opt,name=out_msg_limit,json=outMsgLimit,proto3" json:"out_msg_limit,omitempty"`

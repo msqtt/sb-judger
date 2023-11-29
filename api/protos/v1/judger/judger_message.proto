@@ -14,9 +14,9 @@ message RunCodeRequest {
 	string code = 2;
 	// 程序输入内容
 	string input = 3;
-	// 限定运行时间(单位: ms)
+	// 限定运行时间(单位: ms [0, 2000])
 	uint32 time = 4;	
-	// 限定程序使用内存(单位: mb)
+	// 限定程序使用内存(单位: mb [1, 256])
 	uint32 memory = 5;
 	// 限定输出内容大小(单位: kb)
   uint32 out_msg_limit = 6;

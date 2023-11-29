@@ -175,12 +175,12 @@
         "time": {
           "type": "integer",
           "format": "int64",
-          "title": "限定运行时间(单位: ms)"
+          "title": "限定运行时间(单位: ms [0, 2000])"
         },
         "memory": {
           "type": "integer",
           "format": "int64",
-          "title": "限定程序使用内存(单位: mb)"
+          "title": "限定程序使用内存(单位: mb [1, 256])"
         },
         "outMsgLimit": {
           "type": "integer",
