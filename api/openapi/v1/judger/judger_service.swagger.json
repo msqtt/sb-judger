@@ -210,6 +210,10 @@
           "type": "number",
           "format": "float",
           "title": "程序使用内存(kb)"
+        },
+        "state": {
+          "type": "string",
+          "title": "程序运行状态"
         }
       }
     },

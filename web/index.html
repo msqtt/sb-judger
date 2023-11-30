@@ -90,7 +90,8 @@
         out.value = data.outPut +
         "\n\n====================\nCpuTimeUsage: " + data.cpuTimeUsage + " (ms)" +
         "\nRealTimeUsage: " + data.realTimeUsage + " (ms)" +
-        "\nMemoryUsage: " + data.memoryUsage + " (kb)";
+        "\nMemoryUsage: " + data.memoryUsage + " (kb)" + 
+        "\nState: " + data.state;
       } else {
         const data = await resp.text();
         out.value = data;

@@ -89,7 +89,7 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 		msg = r.ReplaceAllString(msg, ".../")
 		log.Println(err)
 		err = nil
-		return &pb_jg.RunCodeResponse{OutPut: msg}, nil
+		return &pb_jg.RunCodeResponse{OutPut: msg, State: "CE"}, nil
 	}
 	// chmod 755 for program
 	compileOutPath := filepath.Join(tempPath, lc.Out)
@@ -149,12 +149,16 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 		return nil, status.Error(codes.Internal, "failed to collect output")
 	}
 	out := outs[0]
-	log.Println(out.Status.String())
+  state := out.Status.String()
+  if state == "WA" || state == "AC" {
+    state = ""
+  }
 	return &pb_jg.RunCodeResponse{
 		OutPut:        out.OutPut,
 		CpuTimeUsage:  float32(out.CpuTimeUsage) / 1000,
 		RealTimeUsage: float32(out.RealTimeUsage) / 1000,
 		MemoryUsage:   float32(out.MemoryUsage) / 1024,
+    State: state,
 	}, nil
 }
 

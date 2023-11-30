@@ -31,6 +31,8 @@ message RunCodeResponse {
 	float real_time_usage = 3;
 	// 程序使用内存(kb)
 	float memory_usage = 4;
+  // 程序运行状态
+  string state = 5;
 }
 
 message JudgeCodeRequest {
