@@ -38,9 +38,9 @@ func maskFork() (*exec.Cmd, *os.File, error) {
 		Setpgid: true,
 		// needed namespace
 		Cloneflags: syscall.CLONE_NEWUTS |
-			syscall.CLONE_NEWIPC |
-			// need to send signal to ppid, so use setns to set instead
-			// syscall.CLONE_NEWPID |
+			syscall.CLONE_NEWPID |
+			// need to send message to ppid, so use setns to set instead
+			// syscall.CLONE_NEWIPC |
 			// damn, can not set this
 			// syscall.CLONE_NEWUSER |
 			syscall.CLONE_NEWNS |

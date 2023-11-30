@@ -6,15 +6,14 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 	"unicode"
 
 	pb_sb "github.com/msqtt/sb-judger/api/pb/v1/sandbox"
+	msgq "github.com/msqtt/sb-judger/internal/message"
 	"github.com/msqtt/sb-judger/internal/pkg/json"
 	res "github.com/msqtt/sb-judger/internal/sandbox/resource"
 	"golang.org/x/sys/unix"
@@ -113,15 +112,8 @@ func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec ui
 		return nil, inteErrCode, 0, err
 	}
 
-	// stage1: write args, input content to launch process
+	// write args, input content to launch process
 	// and binding stdout and stderr.
-	mes := fmt.Sprintf("%s#%s", mntPath, runCmd)
-	_, err = writePipe.WriteString(mes)
-	if err != nil {
-		return nil, inteErrCode, 0, fmt.Errorf("cannot write pipe: %w", err)
-	}
-	writePipe.Close()
-
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, inteErrCode, 0, fmt.Errorf("cannot get stdin: %w", err)
@@ -137,9 +129,6 @@ func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec ui
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
 
-	// stage2: start two goroutine, one for starting son process then wait to it exit,
-	// the other for counting total seconds to kill son process.
-
 	retCh := make(chan processResult)
 
 	// start launch process.
@@ -147,6 +136,18 @@ func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec ui
 	if err != nil {
 		return nil, inteErrCode, 0, fmt.Errorf("cannot start sub process: %w", err)
 	}
+
+	msqid, err := msgq.OpenQueue(cmd.Process.Pid)
+	if err != nil {
+		log.Println(err)
+	}
+
+	mes := fmt.Sprintf("%s#%s#%s", mntPath, runCmd, fmt.Sprint(msqid))
+	_, err = writePipe.WriteString(mes)
+	if err != nil {
+		return nil, inteErrCode, 0, fmt.Errorf("cannot write pipe: %w", err)
+	}
+	writePipe.Close()
 
 	go func() {
 		err := cmd.Wait()
@@ -168,19 +169,15 @@ func execLaunchProcess(cv *res.CgroupV2, lc *json.LanguageConfig, outLim, sec ui
 		}
 	}()
 
-	// waiting for launch process's start signal then add its pid to cgroups
-	sign := make(chan os.Signal)
-	signal.Notify(sign, syscall.SIGUSR1)
-
 	var ret processResult
 	var startAt time.Time
 	var endAt time.Time
 	var realTime int
 loop:
-	// one round for signal coming, the other for checking that
+	// one round for message coming, the other for checking that
 	// process successfully exited or exceed time to be killed
 	// or bad things happened.
-	for i := 0; i < 2; i++ {
+  for i := 0; i < 2; i ++ {
 		select {
 		case ret = <-retCh:
 			endAt = time.Now()
@@ -199,17 +196,16 @@ loop:
 				if err != nil {
 					ret.err = fmt.Errorf("cannot kill process: %w", ret.err)
 				}
-				// collect wait output
+				// collect program output
 				retWait := <-retCh
-				ret.outPut = append(retWait.outPut, ret.outPut...)
+				ret.outPut = retWait.outPut
 			}
 			// case: program exists successfully.
 			break loop
 
-		case <-sign:
+		case <-msgq.MsgChan(msqid, msgq.NewMsg(1, nil)):
 			// set pid and cgroup namespace for sub process.
-
-			err := setNsFor(cmd.Process.Pid, unix.CLONE_NEWPID)
+			err := setNsFor(cmd.Process.Pid, unix.CLONE_NEWIPC)
 			if err != nil {
 				err = fmt.Errorf("cannot setns for sub process: %w", err)
 				err2 := cmd.Process.Kill()
@@ -242,7 +238,11 @@ loop:
 				}
 			}()
 			// tell sub process it is ok to run program after adding.
-			syscall.Kill(cmd.Process.Pid, syscall.SIGUSR1)
+			// err = msgq.SndMsg(msqid, msgq.NewMsg(2, nil))
+      err = msgq.DestroyQueue(msqid)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 	}
 	return trimMessage(mntPath, ret.outPut, lc), ret.exitCode, realTime, ret.err

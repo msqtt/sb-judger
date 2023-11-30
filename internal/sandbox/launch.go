@@ -4,20 +4,20 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
-	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
+	msgq "github.com/msqtt/sb-judger/internal/message"
 	"github.com/msqtt/sb-judger/internal/sandbox/fs"
 )
 
 // LaunchEntry is the entry of executing compiled program.
 func LaunchEntry() (err error) {
 	// stage1: read args from pipe
-	mntPath, runCmd, err := readArgsFromPipe()
+	mntPath, runCmd, msqidStr, err := readArgsFromPipe()
 	if err != nil {
 		return
 	}
@@ -37,22 +37,26 @@ func LaunchEntry() (err error) {
   // chdir to workspace
   syscall.Chdir("/tmp")
 
-	// stage3: send a start signal to parent process then wait to exec to binary program.
-	// telling parent process im ready.
-	sign := make(chan os.Signal)
-	signal.Notify(sign, syscall.SIGUSR1)
-	err2 := syscall.Kill(os.Getppid(), syscall.SIGUSR1)
-  if err2 != nil {
-    log.Fatal(err2)
-  }
-
-  // set rootless to process
+  // set rootless for process
   syscall.Setgid(65534)
   syscall.Setgroups([]int{65534})
   syscall.Setuid(65534)
 
-	// waiting for parent's signal then launch code program.
-	<-sign
+	// stage3: send a start message to parent process then wait to exec to binary program.
+	// telling parent process im ready.
+  d, _ := strconv.Atoi(msqidStr)
+  msqid := uintptr(d)
+
+  err2 := msgq.SndMsg(msqid, msgq.NewMsg(1, nil))
+  if err2 != nil {
+    return err2
+  }
+
+	// waiting for parent's message(rm queue) then launch code program.
+  err = msgq.RcvMsg(msqid, msgq.NewMsg(2, nil))
+  if err.Error() != "identifier removed" {
+    return err
+  }
 
   if err := syscall.Exec(runCmd, cmdArgs, nil); err != nil {
 		return fmt.Errorf("cannot exec command in the container: %w", err)
@@ -62,7 +66,7 @@ func LaunchEntry() (err error) {
 }
 
 // readArgsFromPipe reads args from pipe passing by parent process.
-func readArgsFromPipe() (mntPath, runCmd string, err error) {
+func readArgsFromPipe() (mntPath, runCmd, msqid string, err error) {
 	var tmp []byte
   pipe := os.NewFile(uintptr(3), "pipe")
   defer pipe.Close()
@@ -78,6 +82,7 @@ func readArgsFromPipe() (mntPath, runCmd string, err error) {
 		}
 		mntPath = s[0]
 		runCmd = s[1]
+		msqid = s[2]
 		return
 	}
 }
