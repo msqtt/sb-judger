@@ -1,6 +1,6 @@
 {
 	"c":{
-		"pids": 7,
+		"pids": 1,
 		"src": "main.c",
 		"out": "main",
 		"compile": {
@@ -20,7 +20,7 @@
     "trimMsg": []
 	},
 	"cpp":{
-		"pids": 7,
+		"pids": 1,
 		"src": "main.cpp",
 		"out": "main",
 		"compile": {
@@ -63,7 +63,7 @@
       "OpenJDK 64-Bit Server VM warning: Can't detect primordial thread stack location - find_vma failed\n"]
 	},
 	"python": {
-		"pids": 7,
+		"pids": 1,
 		"src": "main.py",
 		"out": "__pycache__/main.cpython-310.pyc",
 		"compile": {

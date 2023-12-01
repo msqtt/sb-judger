@@ -52,13 +52,18 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 		return nil, status.Error(codes.InvalidArgument, "code cannot be none")
 	}
 
-	if time > 2000 || time < 0 {
+	if time > 2000 {
 		return nil, status.Error(codes.InvalidArgument, "time limit should be in [0, 2000]")
 	}
 
 	if mem > 256 || mem < 1 {
 		return nil, status.Error(codes.InvalidArgument, "memory limit should be in [1, 256]")
 	}
+ 
+  if outMsgLimit > 1024 {
+		return nil, status.Error(codes.InvalidArgument, "output limit should be in [0, 1024]")
+  }
+
 
 	lc := js.langConfMap[lang.String()]
 	if lc == nil {
