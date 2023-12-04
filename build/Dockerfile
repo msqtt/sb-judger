@@ -16,6 +16,7 @@ RUN apk add rust
 RUN rm -vrf /var/cache/apk/*
 WORKDIR /app
 COPY --from=build /app/rootfs ./rootfs
+COPY --from=build /app/web ./web
 COPY --from=build /app/configs ./configs
 COPY --from=build /app/sandbox .
 COPY --from=build /app/sb-judger .
