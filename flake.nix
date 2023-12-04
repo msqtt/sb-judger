@@ -5,10 +5,10 @@
 
   outputs = { self, nixpkgs }:
     let
-		
+
       goVersion = 18; # Change this to update the whole stack
       overlays = [ (final: prev: { go = prev."go_1_${toString goVersion}"; }) ];
-      supportedSystems = [ "x86_64-linux"];
+      supportedSystems = [ "x86_64-linux" ];
       forEachSupportedSystem = f: nixpkgs.lib.genAttrs supportedSystems (system: f {
         pkgs = import nixpkgs { inherit overlays system; };
       });
@@ -23,11 +23,11 @@
             gopls
             gotools
 
-						protobuf
+            protobuf
           ];
           shellHook = ''
             export GOPATH="$HOME/env/develop/go/gopath"
-						export PATH="$PATH:$GOPATH/bin"
+            export PATH="$PATH:$GOPATH/bin"
             go version
           '';
         };

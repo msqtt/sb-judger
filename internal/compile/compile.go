@@ -10,6 +10,15 @@ import (
 	"github.com/msqtt/sb-judger/internal/pkg/json"
 )
 
+type ErrCompileMsg struct {
+	Msg string
+}
+
+// Error implements error.
+func (e *ErrCompileMsg) Error() string {
+	return e.Msg
+}
+
 // CreateCompileCmd saves codei which will be compiled into a temp dir inside named destPath.
 // it returns a command type, tempPath, and an error, if any.
 func CreateCompileCmd(tempPath, lang, code string, conf json.LanguageConfig) (

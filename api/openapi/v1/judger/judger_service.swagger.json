@@ -30,7 +30,7 @@
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/googlerpcStatus"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -63,7 +63,7 @@
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/googlerpcStatus"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -84,22 +84,30 @@
     }
   },
   "definitions": {
-    "googlerpcStatus": {
+    "judgerCodeResult": {
       "type": "object",
       "properties": {
-        "code": {
+        "caseId": {
           "type": "integer",
-          "format": "int32"
+          "format": "int64"
         },
-        "message": {
-          "type": "string"
+        "cpuTimeUsage": {
+          "type": "number",
+          "format": "double",
+          "title": "程序运行Cpu耗时(ms)"
         },
-        "details": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/protobufAny"
-          }
+        "realTimeUsage": {
+          "type": "number",
+          "format": "double",
+          "title": "程序运行总耗时(ms)"
+        },
+        "memoryUsage": {
+          "type": "number",
+          "format": "double",
+          "title": "程序使用内存(kb)"
+        },
+        "state": {
+          "$ref": "#/definitions/sandboxState"
         }
       }
     },
@@ -127,7 +135,7 @@
         "outMsgLimit": {
           "type": "integer",
           "format": "int64",
-          "title": "限定输出内容大小(单位: kb)"
+          "title": "限定输出内容大小(0 表示使用默认值, 单位: kb)"
         },
         "case": {
           "type": "array",
@@ -141,19 +149,29 @@
     "judgerJudgeCodeResponse": {
       "type": "object",
       "properties": {
-        "status": {
-          "$ref": "#/definitions/v1sandboxStatus",
+        "state": {
+          "$ref": "#/definitions/sandboxState",
           "title": "程序状态"
         },
-        "totalTimeUsage": {
-          "type": "integer",
-          "format": "int64",
-          "title": "程序使用总时间(us)"
+        "maxTimeUsage": {
+          "type": "number",
+          "format": "double",
+          "title": "程序使用最大时间(ms)"
         },
-        "totalMemoryUsage": {
-          "type": "integer",
-          "format": "int64",
-          "title": "程序使用总内存(byte)"
+        "maxMemoryUsage": {
+          "type": "number",
+          "format": "double",
+          "title": "程序使用最大内存(byte)"
+        },
+        "outPut": {
+          "type": "string"
+        },
+        "codeResults": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/judgerCodeResult"
+          }
         }
       }
     },
@@ -185,7 +203,7 @@
         "outMsgLimit": {
           "type": "integer",
           "format": "int64",
-          "title": "限定输出内容大小(单位: kb)"
+          "title": "限定输出内容大小(0 表示使用默认值，单位: kb)"
         }
       }
     },
@@ -198,21 +216,21 @@
         },
         "cpuTimeUsage": {
           "type": "number",
-          "format": "float",
+          "format": "double",
           "title": "程序运行Cpu耗时(ms)"
         },
         "realTimeUsage": {
           "type": "number",
-          "format": "float",
+          "format": "double",
           "title": "程序运行总耗时(ms)"
         },
         "memoryUsage": {
           "type": "number",
-          "format": "float",
+          "format": "double",
           "title": "程序使用内存(kb)"
         },
         "state": {
-          "type": "string",
+          "$ref": "#/definitions/sandboxState",
           "title": "程序运行状态"
         }
       }
@@ -225,6 +243,25 @@
         }
       },
       "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
     },
     "sandboxCase": {
       "type": "object",
@@ -253,9 +290,10 @@
       ],
       "default": "c"
     },
-    "v1sandboxStatus": {
+    "sandboxState": {
       "type": "string",
       "enum": [
+        "CE",
         "AC",
         "WA",
         "RE",
@@ -263,7 +301,7 @@
         "MLE",
         "UE"
       ],
-      "default": "AC"
+      "default": "CE"
     }
   }
 }

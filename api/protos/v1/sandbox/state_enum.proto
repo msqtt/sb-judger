@@ -3,11 +3,12 @@ syntax = "proto3";
 package v1.sandbox;
 option go_package="github.com/msqtt/sb-judger/api/pb/v1/sandbox;pb_sb";
 
-enum Status {
-	AC = 0;
-	WA = 1;
-	RE = 2;
-	TLE = 3;
-	MLE = 4;
-	UE = 5;
+enum State {
+	CE = 0;
+	AC = 1;
+	WA = 2;
+	RE = 3;
+	TLE = 4;
+	MLE = 5;
+	UE = 6;
 }

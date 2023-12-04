@@ -5,7 +5,7 @@ option go_package="github.com/msqtt/sb-judger/api/pb/v1/judger;pb_jg";
 
 import "sandbox/lang_enum.proto";
 import "sandbox/case_message.proto";
-import "sandbox/status_enum.proto";
+import "sandbox/state_enum.proto";
 
 message RunCodeRequest {
 	// 编程语言
@@ -18,7 +18,7 @@ message RunCodeRequest {
 	uint32 time = 4;	
 	// 限定程序使用内存(单位: mb [1, 256])
 	uint32 memory = 5;
-	// 限定输出内容大小(单位: kb)
+	// 限定输出内容大小(0 表示使用默认值，单位: kb)
   uint32 out_msg_limit = 6;
 }
 
@@ -26,13 +26,24 @@ message RunCodeResponse {
 	// 程序输出
 	string out_put = 1;
 	// 程序运行Cpu耗时(ms)
-	float cpu_time_usage = 2;
+	double cpu_time_usage = 2;
 	// 程序运行总耗时(ms)
-	float real_time_usage = 3;
+	double real_time_usage = 3;
 	// 程序使用内存(kb)
-	float memory_usage = 4;
+	double memory_usage = 4;
   // 程序运行状态
-  string state = 5;
+  sandbox.State state = 5;
+}
+
+message CodeResult {
+  uint32 case_id = 1;
+	// 程序运行Cpu耗时(ms)
+	double cpu_time_usage = 2;
+	// 程序运行总耗时(ms)
+	double real_time_usage = 3;
+	// 程序使用内存(kb)
+	double memory_usage = 4;
+  sandbox.State state = 5;
 }
 
 message JudgeCodeRequest {
@@ -44,16 +55,18 @@ message JudgeCodeRequest {
 	uint32 time = 3;	
 	// 限定程序使用内存(单位: mb)
 	uint32 memory = 4;
-	// 限定输出内容大小(单位: kb)
-  uint32 out_msg_limit = 6;
-	repeated sandbox.Case case = 5;
+	// 限定输出内容大小(0 表示使用默认值, 单位: kb)
+  uint32 out_msg_limit = 5;
+	repeated sandbox.Case case = 6;
 }
 
 message JudgeCodeResponse {
   // 程序状态
-	sandbox.Status status = 1;
-	// 程序使用总时间(us)
-	uint32 total_time_usage = 2;
-	// 程序使用总内存(byte)
-	uint32 total_memory_usage = 3;
+	sandbox.State state = 1;
+	// 程序使用最大时间(ms)
+	double max_time_usage = 2;
+	// 程序使用最大内存(byte)
+	double max_memory_usage = 3;
+	string out_put = 4;
+  repeated CodeResult code_results = 5;
 }

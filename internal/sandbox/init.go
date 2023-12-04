@@ -55,8 +55,13 @@ func InitEntry(lang, id, mntPath string, outLimit, mem, time uint32, cases []*pb
 		return nil, fmt.Errorf("cannot config for resourceManager: %w", err)
 	}
 
-	collectOuts := make([]*pb_sb.Output, len(cases))
+	outPath := filepath.Join("/tmp", lc.Out)
+	// still, lazy codes 🤓
+	runCmd := strings.Join(lc.Run, " ")
+	runCmd = fmt.Sprintf(runCmd, outPath)
+	runCmd = strings.Split(runCmd, "%!")[0]
 
+	collectOuts := make([]*pb_sb.Output, len(cases))
 	// todo: using goroutine to fork per case sub process.
 	for i, cas := range cases {
 		// add sub cgroup for per case.
@@ -65,16 +70,10 @@ func InitEntry(lang, id, mntPath string, outLimit, mem, time uint32, cases []*pb
 			return nil, fmt.Errorf("cannot add sub group: %w", err)
 		}
 
-		outPath := filepath.Join("/tmp", lc.Out)
-		// still, lazy codes 🤓
-		runCmd := strings.Join(lc.Run, " ")
-		runCmd = fmt.Sprintf(runCmd, outPath)
-		runCmd = strings.Split(runCmd, "%!")[0]
-
 		// passing id and input string
 		bytes, code, realTime, err := execLaunchProcess(cv, lc, outLimit, time, mntPath, runCmd, cas.In)
-
 		if code == inteErrCode {
+			// internal errror happens just cut off
 			return nil, fmt.Errorf("cannot collect sub process: [%w, msg: %s]", err, string(bytes))
 		}
 
@@ -85,8 +84,7 @@ func InitEntry(lang, id, mntPath string, outLimit, mem, time uint32, cases []*pb
 		}
 
 		// check status
-		status := checkStatus(bytes, code, err, []byte(cas.GetOut()), usage,
-			time, mem)
+		status := checkState(bytes, code, err, []byte(cas.GetOut()), usage, time, mem)
 
 		// collection result
 		collectOuts[i] = &pb_sb.Output{
@@ -94,7 +92,7 @@ func InitEntry(lang, id, mntPath string, outLimit, mem, time uint32, cases []*pb
 			CpuTimeUsage:  usage.CpuTime,
 			RealTimeUsage: uint32(realTime),
 			MemoryUsage:   usage.MemoryUsage,
-			Status:        status,
+			State:         status,
 			OutPut:        string(bytes),
 		}
 	}
@@ -177,7 +175,7 @@ loop:
 	// one round for message coming, the other for checking that
 	// process successfully exited or exceed time to be killed
 	// or bad things happened.
-  for i := 0; i < 2; i ++ {
+	for i := 0; i < 2; i++ {
 		select {
 		case ret = <-retCh:
 			endAt = time.Now()
@@ -239,7 +237,7 @@ loop:
 			}()
 			// tell sub process it is ok to run program after adding.
 			// err = msgq.SndMsg(msqid, msgq.NewMsg(2, nil))
-      err = msgq.DestroyQueue(msqid)
+			err = msgq.DestroyQueue(msqid)
 			if err != nil {
 				log.Println(err)
 			}
@@ -262,37 +260,38 @@ func trimMessage(mntPath string, out []byte, lc *json.LanguageConfig) []byte {
 	return out
 }
 
-func checkStatus(outCont []byte, code int, outErr error, ans []byte,
-	usage *res.RunState, timeLimit, memLimit uint32) pb_sb.Status {
+// checkState returns running state depending on output、exitcode and err
+func checkState(outCont []byte, code int, outErr error, ans []byte,
+	usage *res.RunState, timeLimit, memLimit uint32) pb_sb.State {
 	// trim right space (is it needed ?)
 	outCont = bytes.TrimRightFunc(outCont, unicode.IsSpace)
 	ans = bytes.TrimRightFunc(ans, unicode.IsSpace)
 
 	if usage.CpuTime/1000 > timeLimit {
-		return pb_sb.Status_TLE
+		return pb_sb.State_TLE
 	}
 	if usage.MemoryUsage > memLimit<<20 {
-		return pb_sb.Status_MLE
+		return pb_sb.State_MLE
 	}
 	if usage.OOMKill > 0 {
-		return pb_sb.Status_MLE
+		return pb_sb.State_MLE
 	}
 
 	if errors.Is(outErr, os.ErrDeadlineExceeded) {
-		return pb_sb.Status_TLE
+		return pb_sb.State_TLE
 	}
 
 	switch code {
 	case 0:
 		// diff between answer and user printout.
 		if bytes.Compare(outCont, ans) == 0 {
-			return pb_sb.Status_AC
+			return pb_sb.State_AC
 		} else {
-			return pb_sb.Status_WA
+			return pb_sb.State_WA
 		}
 	case 1, 2, 136, 139:
-		return pb_sb.Status_RE
+		return pb_sb.State_RE
 	default:
-		return pb_sb.Status_UE
+		return pb_sb.State_UE
 	}
 }

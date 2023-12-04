@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -32,10 +33,100 @@ type JudgerServer struct {
 	langConfMap json.LangConfMap
 }
 
+type judgeCodeResult struct {
+	resp *pb_jg.JudgeCodeResponse
+	err  error
+}
+
 // JudgeCode implements pb_jg.CodeServer.
 func (js *JudgerServer) JudgeCode(ctx context.Context, req *pb_jg.JudgeCodeRequest) (
-	resp *pb_jg.JudgeCodeResponse, err error) {
-	panic("unimplemented")
+	*pb_jg.JudgeCodeResponse, error) {
+	code := req.GetCode()
+	lang := req.GetLang()
+	timeLimit := req.GetTime()
+	memLimit := req.GetMemory()
+  outLimit := req.GetOutMsgLimit()
+	cases := req.GetCase()
+
+	retCh := make(chan judgeCodeResult)
+
+	// long time actions
+	go func() {
+		collectOut, err := js.runCode(lang.String(), code,
+			memLimit, timeLimit, outLimit, cases)
+
+		if err != nil {
+			var errCompile *compile.ErrCompileMsg
+			if errors.As(err, &errCompile) {
+				retCh <- judgeCodeResult{
+					resp: &pb_jg.JudgeCodeResponse{OutPut: err.Error(), State: pb_sb.State_CE},
+					err:  nil}
+				return
+			}
+			retCh <- judgeCodeResult{resp: nil, err: err}
+			return
+		}
+
+		outs := collectOut.GetCaseOuts()
+		if len(outs) <= 0 {
+			retCh <- judgeCodeResult{
+				resp: nil,
+				err:  status.Error(codes.Internal, "failed to collect output")}
+			return
+		}
+
+		cr := make([]*pb_jg.CodeResult, len(outs))
+		var finalState pb_sb.State = -1
+		var finalTimeUsage float64
+		var finalMemoryUsage float64
+
+		for i, o := range outs {
+			if o.State != pb_sb.State_AC {
+				finalState = o.State
+			}
+
+			cpuTimeUsage := float64(o.CpuTimeUsage)
+			realTimeUsage := float64(o.RealTimeUsage)
+			memoryTimeUsage := float64(o.MemoryUsage)
+
+			finalTimeUsage = math.Max(finalTimeUsage, realTimeUsage)
+			finalMemoryUsage = math.Max(finalMemoryUsage, memoryTimeUsage)
+
+			cr[i] = &pb_jg.CodeResult{
+				CaseId:        o.CaseId,
+				CpuTimeUsage:  cpuTimeUsage / 1000,
+				RealTimeUsage: realTimeUsage / 1000,
+				MemoryUsage:   memoryTimeUsage / 1024,
+				State:         o.State,
+			}
+		}
+		if finalState == -1 {
+			finalState = pb_sb.State_AC
+		}
+
+		retCh <- judgeCodeResult{
+			resp: &pb_jg.JudgeCodeResponse{
+				State:          finalState,
+				MaxTimeUsage:   finalTimeUsage / 1000,
+				MaxMemoryUsage: finalMemoryUsage / 1024,
+				OutPut:         "",
+				CodeResults:    cr},
+			err: nil,
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		log.Println("request cancel...")
+		return nil, nil
+	case ret := <-retCh:
+		return ret.resp, ret.err
+	}
+}
+
+type runCodeResult struct {
+	resp *pb_jg.RunCodeResponse
+	err  error
 }
 
 // RunCode implements pb_jg.CodeServer.
@@ -43,43 +134,108 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	*pb_jg.RunCodeResponse, error) {
 	code := req.GetCode()
 	lang := req.GetLang()
-	time := req.GetTime()
-	mem := req.GetMemory()
+	timeLimit := req.GetTime()
+	memLimit := req.GetMemory()
+	outLimit := req.GetOutMsgLimit()
 	inputContent := req.GetInput()
-	outMsgLimit := req.GetOutMsgLimit()
+
+	retCh := make(chan runCodeResult)
+
+	// long time actions
+	go func() {
+		collectOut, err := js.runCode(lang.String(), code,
+			memLimit, timeLimit, outLimit,
+			[]*pb_sb.Case{
+				{
+					CaseId: 1,
+					In:     inputContent,
+					Out:    "",
+				},
+			},
+		)
+		if err != nil {
+			var errCompile *compile.ErrCompileMsg
+			if errors.As(err, &errCompile) {
+				retCh <- runCodeResult{
+					resp: &pb_jg.RunCodeResponse{OutPut: err.Error(), State: pb_sb.State_CE},
+					err:  nil,
+				}
+				return
+			}
+
+			retCh <- runCodeResult{
+				resp: nil, err: err,
+			}
+			return
+		}
+
+		outs := collectOut.GetCaseOuts()
+		if len(outs) <= 0 {
+			retCh <- runCodeResult{
+				resp: nil, err: status.Error(codes.Internal, "failed to collect output"),
+			}
+			return
+		}
+		out := outs[0]
+		if out.State == pb_sb.State_WA {
+			out.State = pb_sb.State_AC
+		}
+
+		retCh <- runCodeResult{
+			resp: &pb_jg.RunCodeResponse{
+				OutPut:        out.OutPut,
+				CpuTimeUsage:  float64(out.CpuTimeUsage) / 1000,
+				RealTimeUsage: float64(out.RealTimeUsage) / 1000,
+				MemoryUsage:   float64(out.MemoryUsage) / 1024,
+				State:         out.State,
+			}, err: nil}
+	}()
+
+	select {
+	case <-ctx.Done():
+		log.Println("request cancel...")
+		return nil, nil
+	case ret := <-retCh:
+		return ret.resp, ret.err
+	}
+}
+
+// runCode makes a sandbox to run program and judges each cases then returns outputs.
+func (js *JudgerServer) runCode(lang, code string,
+	memLimit, timeLimit, outLimit uint32, cases []*pb_sb.Case) (*pb_sb.CollectOutput, error) {
 
 	if strings.TrimRightFunc(code, unicode.IsSpace) == "" {
 		return nil, status.Error(codes.InvalidArgument, "code cannot be none")
 	}
 
-	if time > 2000 {
+	if timeLimit > 2000 {
 		return nil, status.Error(codes.InvalidArgument, "time limit should be in [0, 2000]")
 	}
 
-	if mem > 256 || mem < 1 {
+	if memLimit > 256 || memLimit < 1 {
 		return nil, status.Error(codes.InvalidArgument, "memory limit should be in [1, 256]")
 	}
- 
-  if outMsgLimit > 1024 {
+
+	if outLimit > 1024 {
 		return nil, status.Error(codes.InvalidArgument, "output limit should be in [0, 1024]")
-  }
+	}
 
-
-	lc := js.langConfMap[lang.String()]
+	conf := js.conf
+	lc := js.langConfMap[lang]
 	if lc == nil {
 		log.Println(ErrNotSupportedLang)
 		return nil, status.Error(codes.InvalidArgument, "not supported language")
 	}
 
 	// make a tempPath for working
-	tempPath, err := os.MkdirTemp(js.conf.WorkDir, "sb-judger*")
+	tempPath, err := os.MkdirTemp(conf.WorkDir, "sb-judger*")
 	if err != nil {
 		log.Println(err)
 		return nil, status.Error(codes.Internal, "failed to mkdir temp")
 	}
 
 	// stage1: compiling code
-	cmd, err := compile.CreateCompileCmd(tempPath, lang.String(), code, *lc)
+	cmd, err := compile.CreateCompileCmd(tempPath, lang, code, *lc)
 	if err != nil {
 		log.Println(err)
 		return nil, status.Error(codes.Internal, "failed to create compile cmd")
@@ -94,7 +250,7 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 		msg = r.ReplaceAllString(msg, ".../")
 		log.Println(err)
 		err = nil
-		return &pb_jg.RunCodeResponse{OutPut: msg, State: "CE"}, nil
+		return nil, &compile.ErrCompileMsg{Msg: msg}
 	}
 	// chmod 755 for program
 	compileOutPath := filepath.Join(tempPath, lc.Out)
@@ -105,7 +261,7 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	}
 
 	// stage2: builds a rootfs for running program.
-	overlayfs, err := fs.NewOverlayfs(js.conf.RootFsDir)
+	overlayfs, err := fs.NewOverlayfs(conf.RootFsDir)
 	if err != nil {
 		log.Println(err)
 		err = status.Error(codes.Internal, "failed to new overlayfs")
@@ -124,51 +280,30 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 	}
 
 	// stage3: run process
-  id, err := gonanoid.New()
+	id, err := gonanoid.New()
 	mntPath := path.Join(tempPath, "mnt")
 
 	// prepare outputContent limit.
 	var outContentLimit uint32
-	if outMsgLimit <= 0 {
-		outContentLimit = uint32(js.conf.OutLenLimit << 10)
+	if outLimit <= 0 {
+		outContentLimit = uint32(conf.OutLenLimit << 10)
 	} else {
-		outContentLimit = outMsgLimit << 10
+		outContentLimit = outLimit << 10
 	}
 
-	collectOut, err := sandbox.InitEntry(lang.String(), id, mntPath,
-		outContentLimit, mem, time,
-		[]*pb_sb.Case{
-			{
-				CaseId: 1,
-				In:     inputContent,
-				Out:    "",
-			},
-		},
+	collectOut, err := sandbox.InitEntry(lang, id, mntPath,
+		outContentLimit, memLimit, timeLimit, cases,
 	)
 	if err != nil {
 		log.Println(err)
 		return nil, status.Error(codes.Internal, "failed to run program")
 	}
-	outs := collectOut.GetCaseOuts()
-	if len(outs) <= 0 {
-		return nil, status.Error(codes.Internal, "failed to collect output")
-	}
-	out := outs[0]
-  state := out.Status.String()
-  if state == "WA" || state == "AC" {
-    state = ""
-  }
-	return &pb_jg.RunCodeResponse{
-		OutPut:        out.OutPut,
-		CpuTimeUsage:  float32(out.CpuTimeUsage) / 1000,
-		RealTimeUsage: float32(out.RealTimeUsage) / 1000,
-		MemoryUsage:   float32(out.MemoryUsage) / 1024,
-    State: state,
-	}, nil
+
+	return collectOut, nil
 }
 
 func str2pbLang(str string) pb_sb.Language {
-	i, ok := pb_sb.Status_value[str]
+	i, ok := pb_sb.State_value[str]
 	if !ok {
 		return -1
 	}
