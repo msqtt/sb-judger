@@ -9,10 +9,10 @@ clean:
 	rm sandbox sb-judger
 
 docker: build/Dockerfile rootfs
-	 docker build -f build/Dockerfile -t msqt/sb-judger:dev .
+	 docker build -f build/Dockerfile -t msqt/sb-judger:0.1.0 .
 
 rootfs: build/tarball.Dockerfile
-	# docker build -f build/tarball.Dockerfile -t msqt/rootfs-tarball:dev .
+	docker build -f build/tarball.Dockerfile -t msqt/rootfs-tarball:0.1.0 .
 	mkdir rootfs
 	docker create msqt/rootfs-tarball:dev | xargs docker export | tar -C rootfs -xf -
 	rm -rf ./rootfs/.dockerenv ./rootfs/var/* ./rootfs/dev/*
