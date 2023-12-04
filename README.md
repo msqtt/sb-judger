@@ -67,7 +67,7 @@ open http://localhost:8080
 
 ```sh
 docker pull msqt/sb-judger:latest
-docker run -d msqt/sb-judger:latest
+docker run --privileged -d -p8080:8080 -p9090:9090 msqt/sb-judger
 ```
 
 #### 自己构建
