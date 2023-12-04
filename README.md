@@ -1,7 +1,7 @@
 <div align="center">
 <h1 align="center">
 <br>SB-JUDGER 🤪</h1>
-<h3>◦ ► 一个使用 Go 语言开发的轻量 OnlineJudger Server.</h3>
+<h3>◦ ► 使用 Go 语言开发的轻量 OnlineJudger Server.</h3>
 <img src="https://img.shields.io/github/license/msqtt/sb-judger?style=flat-square&color=5D6D7E" alt="GitHub license" />
 <img src="https://img.shields.io/github/last-commit/msqtt/sb-judger?style=flat-square&color=5D6D7E" alt="git-last-commit" />
 <img src="https://img.shields.io/github/commit-activity/m/msqtt/sb-judger?style=flat-square&color=5D6D7E" alt="GitHub commit activity" />
