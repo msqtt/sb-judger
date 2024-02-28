@@ -9,7 +9,7 @@ clean:
 	rm sandbox sb-judger
 
 docker: build/Dockerfile rootfs
-	 docker build -f build/Dockerfile -t msqt/sb-judger:0.1.0 .
+	 docker build -f build/Dockerfile -t msqt/sb-judger:0.2.0 .
 
 rootfs: build/tarball.Dockerfile
 	docker build -f build/tarball.Dockerfile -t msqt/rootfs-tarball:0.1.0 .
