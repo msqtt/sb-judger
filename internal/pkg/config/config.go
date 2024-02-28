@@ -12,7 +12,8 @@ type Config struct {
 	EncryKeyPath string `mapstructure:"ENCRY_KEY_PATH"`
 	EnableWeb    bool   `mapstructure:"DEVWEB_ENABLED"`
 	// bytes' length (kb)
-	OutLenLimit int `mapstructure:"DEFAULT_OUTPUT_LENGTH_LIMIT"`
+	OutLenLimit      int `mapstructure:"DEFAULT_OUTPUT_LENGTH_LIMIT"`
+	ConcurrencyLimit int `mapstructure:"LIMIT_CONCURRENCIES"`
 }
 
 func LoadConfig(path string) (config Config, err error) {

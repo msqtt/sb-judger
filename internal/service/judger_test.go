@@ -51,12 +51,12 @@ func TestJudgerCode(t *testing.T) {
 				buildCases(3, "  ", "hello   ").
 				buildCases(4, "cat", "hello dog"),
 			state: []pb_sb.State{
-        pb_sb.State_WA,
-        pb_sb.State_AC,
-        pb_sb.State_AC,
-        pb_sb.State_AC,
-        pb_sb.State_WA,
-      },
+				pb_sb.State_WA,
+				pb_sb.State_AC,
+				pb_sb.State_AC,
+				pb_sb.State_AC,
+				pb_sb.State_WA,
+			},
 		},
 	}
 

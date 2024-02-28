@@ -31,6 +31,7 @@ type JudgerServer struct {
 	pb_jg.UnimplementedCodeServer
 	conf        config.Config
 	langConfMap json.LangConfMap
+	limit       chan struct{}
 }
 
 type judgeCodeResult struct {
@@ -45,7 +46,7 @@ func (js *JudgerServer) JudgeCode(ctx context.Context, req *pb_jg.JudgeCodeReque
 	lang := req.GetLang()
 	timeLimit := req.GetTime()
 	memLimit := req.GetMemory()
-  outLimit := req.GetOutMsgLimit()
+	outLimit := req.GetOutMsgLimit()
 	cases := req.GetCase()
 
 	retCh := make(chan judgeCodeResult)
@@ -201,6 +202,7 @@ func (js *JudgerServer) RunCode(ctx context.Context, req *pb_jg.RunCodeRequest) 
 }
 
 // runCode makes a sandbox to run program and judges each cases then returns outputs.
+// runCode will limit the specific number(js.limit) of concurrency process.
 func (js *JudgerServer) runCode(lang, code string,
 	memLimit, timeLimit, outLimit uint32, cases []*pb_sb.Case) (*pb_sb.CollectOutput, error) {
 
@@ -234,6 +236,11 @@ func (js *JudgerServer) runCode(lang, code string,
 		return nil, status.Error(codes.Internal, "failed to mkdir temp")
 	}
 
+	// before runing, check the limit number of concurrencies
+	<-js.limit
+	// release the number
+	defer func() { js.limit <- struct{}{} }()
+
 	// stage1: compiling code
 	cmd, err := compile.CreateCompileCmd(tempPath, lang, code, *lc)
 	if err != nil {
@@ -252,7 +259,7 @@ func (js *JudgerServer) runCode(lang, code string,
 		err = nil
 		return nil, &compile.ErrCompileMsg{Msg: msg}
 	}
-	// chmod 755 for program
+	// chmod 755 for compile result
 	compileOutPath := filepath.Join(tempPath, lc.Out)
 	err = syscall.Chmod(compileOutPath, 0755)
 	if err != nil {
@@ -313,7 +320,14 @@ func str2pbLang(str string) pb_sb.Language {
 var _ pb_jg.CodeServer = (*JudgerServer)(nil)
 
 func NewJudgerServer(conf config.Config, langMap json.LangConfMap) *JudgerServer {
-	return &JudgerServer{
+	ret := &JudgerServer{
 		conf:        conf,
-		langConfMap: langMap}
+		langConfMap: langMap,
+		limit:       make(chan struct{}, conf.ConcurrencyLimit),
+	}
+	// setup limit of concurrencies.
+	for i := 0; i < conf.ConcurrencyLimit; i++ {
+		ret.limit <- struct{}{}
+	}
+	return ret
 }

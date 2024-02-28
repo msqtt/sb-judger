@@ -19,7 +19,7 @@ func (e *ErrCompileMsg) Error() string {
 	return e.Msg
 }
 
-// CreateCompileCmd saves codei which will be compiled into a temp dir inside named destPath.
+// CreateCompileCmd saves code which will be compiled into a temp dir inside destPath.
 // it returns a command type, tempPath, and an error, if any.
 func CreateCompileCmd(tempPath, lang, code string, conf json.LanguageConfig) (
 	cmd *exec.Cmd, err error) {
