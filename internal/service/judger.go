@@ -236,11 +236,6 @@ func (js *JudgerServer) runCode(lang, code string,
 		return nil, status.Error(codes.Internal, "failed to mkdir temp")
 	}
 
-	// before runing, check the limit number of concurrencies
-	<-js.limit
-	// release the number
-	defer func() { js.limit <- struct{}{} }()
-
 	// stage1: compiling code
 	cmd, err := compile.CreateCompileCmd(tempPath, lang, code, *lc)
 	if err != nil {
@@ -285,6 +280,11 @@ func (js *JudgerServer) runCode(lang, code string,
 		log.Println(err)
 		return nil, status.Error(codes.Internal, "failed to move binary file")
 	}
+
+	// before runing, check the limit number of concurrencies
+	<-js.limit
+	// release the number
+	defer func() { js.limit <- struct{}{} }()
 
 	// stage3: run process
 	id, err := gonanoid.New()
