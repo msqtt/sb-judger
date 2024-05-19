@@ -12,8 +12,8 @@ import (
 )
 
 func TestCreateCompileCmd(t *testing.T) {
-	const testGoodPath = "./testCode/good"
-	const testBadPath = "./testCode/bad"
+	const testGoodPath = "./testcode/compile/good"
+	const testBadPath = "./testcode/compile/bad"
 
 	lcm, err := json.GetLangConfs("./lang_test.json")
 	require.NoError(t, err)
