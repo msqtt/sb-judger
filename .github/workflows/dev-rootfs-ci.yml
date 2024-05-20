@@ -1,0 +1,52 @@
+name: Dev-Rootfs-CI
+
+on:
+  push:
+    branches: [ "dev" ]
+    paths:
+      - build/tarball.Dockerfile
+jobs:
+  build-release-rootfs-image-job:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Get previous tag
+      id: prev_tag
+      run: echo "::set-output name=tag::$(git describe --tags --abbrev=0 HEAD^1)"
+
+    - name: Get current tag
+      id: curr_tag
+      run: echo "::set-output name=tag::$(git describe --tags --abbrev=0 HEAD)"
+
+    - name: Get Imagetag
+      env:
+        image_owner: msqt
+        image_name: rootfs-tarball
+      run:  |
+          echo "image_whole_tag=$image_owner/$image_name:dev" >> $GITHUB_ENV
+          if [ "${{ steps.prev_tag.outputs.tag }}" != "${{ steps.curr_tag.outputs.tag }}" ]; then
+            echo "Tag has changed from ${{ steps.prev_tag.outputs.tag }} to ${{ steps.curr_tag.outputs.tag }}"
+            echo "image_whole_tag=$image_whole_tag,$image_owner/$image_name:latest,$image_owner/$image_name:${{ steps.curr_tag.outputs.tag }}" >> $GITHUB_ENV
+          else
+            echo "Tag has not changed"
+          fi
+          echo "$image_whole_tag"
+      
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: build/tarball.Dockerfile
+        tags: ${{ env.image_whole_tag }}
+        platforms: linux/amd64
+        push: true
