@@ -1,6 +1,8 @@
 name: Master-CI
 
 on:
+ release:
+  types: [published]
   push:
     tags:
       - v.**
