@@ -58,11 +58,11 @@ jobs:
     
     - name: Get previous tag
       id: prev_tag
-      run: echo "::set-output name=tag::$(git describe --tags --abbrev=0 HEAD^1)"
+      run: echo "::set-output name=tag::$(git describe --tags --abbrev=0 HEAD^1 | sed 's/^v//')"
 
     - name: Get current tag
       id: curr_tag
-      run: echo "::set-output name=tag::$(git describe --tags --abbrev=0 HEAD)"
+      run: echo "::set-output name=tag::$(git describe --tags --abbrev=0 HEAD | sed 's/^v//')"
       
     - name: Get Imagetag
       env:
