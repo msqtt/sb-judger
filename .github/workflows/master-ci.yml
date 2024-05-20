@@ -4,9 +4,9 @@ on:
   push:
     tags:
       - v.**
-    branches: [ "add-master-actions" ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ "add-master-actions" ]
+    branches: [ "master" ]
 
 env:
   PYTHON_VERSION: 3.10.14
