@@ -1,8 +1,8 @@
 name: Master-CI
 
 on:
- release:
-  types: [published]
+  release:
+    types: [published]
   push:
     tags:
       - v.**
@@ -54,7 +54,7 @@ jobs:
   build-release-app-image-job:
     needs: test-app-job
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    if: github.event_name == 'release'
     steps:
     - uses: actions/checkout@v4
     
