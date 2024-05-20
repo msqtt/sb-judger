@@ -76,6 +76,8 @@ func (js *JudgerServer) JudgeCode(ctx context.Context, req *pb_jg.JudgeCodeReque
 			return
 		}
 
+		log.Println(outs)
+
 		cr := make([]*pb_jg.CodeResult, len(outs))
 		var finalState pb_sb.State = -1
 		var finalTimeUsage float64

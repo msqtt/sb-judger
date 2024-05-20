@@ -1,7 +1,7 @@
 FROM alpine:3.16
 RUN apk update && apk upgrade
-RUN apk add python3
-RUN apk add openjdk8-jre
+RUN apk add python3          # 3.10.14-r1
+RUN apk add openjdk8-jre     # 8.392.08-r0
 RUN rm -vrf /var/cache/apk/*
 RUN rm -vrf /etc/ssl/*
 RUN rm -vrf /etc/terminfo/*

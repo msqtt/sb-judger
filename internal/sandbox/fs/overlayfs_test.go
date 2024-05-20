@@ -67,6 +67,8 @@ func TestOverlayfs(t *testing.T) {
 }
 
 func makeTestMnt(t *testing.T, overlayfs *Overlayfs) []fs.FileInfo {
+	os.RemoveAll(testMntPath)
+
 	err := os.Mkdir(testMntPath, 0755)
 	require.NoError(t, err)
 
@@ -87,7 +89,7 @@ func TestPutFile(t *testing.T) {
 	o, err := NewOverlayfs(testRootfsPath)
 	require.NoError(t, err)
 	require.NotNil(t, o)
-	
+
 	testPath := "./test"
 	err = os.Mkdir(testPath, 0755)
 	require.NoError(t, err)

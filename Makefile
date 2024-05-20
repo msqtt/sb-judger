@@ -1,4 +1,12 @@
-# deploy cmd
+APP_VER ?= 0.2.0
+ROOTFS_VER ?= 0.1.0
+APP_IMAGE_NAME ?= msqt/sb-judger
+APP_IMAGE_TAG ?= $(APP_VER)
+ROOTFS_IMAGE_NAME ?= msqt/rootfs-tarball
+ROOTFS_IMAGE_TAG ?= $(ROOTFS_VER)
+
+.PHONY: docker docker-rootfs gen dev unit-test
+
 sb-judger: sandbox cmd/judger/main.go
 	go build -ldflags="-w -s" -o sb-judger cmd/judger/main.go
 
@@ -9,12 +17,14 @@ clean:
 	rm sandbox sb-judger
 
 docker: build/Dockerfile rootfs
-	 docker build -f build/Dockerfile -t msqt/sb-judger:0.2.0 .
+	 docker build -f build/Dockerfile -t $(APP_IMAGE_NAME):$(APP_IMAGE_TAG) .
 
-rootfs: build/tarball.Dockerfile
-	docker build -f build/tarball.Dockerfile -t msqt/rootfs-tarball:0.1.0 .
+docker-rootfs: build/tarball.Dockerfile
+	docker build -f build/tarball.Dockerfile -t $(ROOTFS_IMAGE_NAME):$(ROOTFS_IMAGE_TAG) .
+
+rootfs:
 	mkdir rootfs
-	docker create msqt/rootfs-tarball:0.1.0 | xargs docker export | tar -C rootfs -xf -
+	docker create $(ROOTFS_IMAGE_NAME):$(ROOTFS_IMAGE_TAG) | xargs docker export | tar -C rootfs -xf -
 	rm -rf ./rootfs/.dockerenv ./rootfs/var/* ./rootfs/dev/*
 
 # develop cmd
@@ -30,4 +40,5 @@ gen:
 dev: sandbox
 	go run cmd/judger/main.go
 
-.PHONY: docker gen dev
+unit-test: sandbox rootfs
+	go test -v --cover ./internal/...

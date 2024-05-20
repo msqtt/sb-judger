@@ -14,6 +14,7 @@ import (
 	"github.com/msqtt/sb-judger/internal/pkg/json"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestJudgerCode(t *testing.T) {
@@ -42,7 +43,7 @@ func TestJudgerCode(t *testing.T) {
 			ctx:       context.Background(),
 			name:      "python-hello",
 			lang:      pb_sb.Language_python,
-			code:      readCode(t, "./python/hello.py"),
+			code:      readCode(t, "./testcode/service/python/hello.py"),
 			memLimit:  64,
 			timeLimit: 1000,
 			cases: newCasesType().
@@ -77,7 +78,7 @@ func TestJudgerCode(t *testing.T) {
 			require.NoError(t, err2)
 			require.NotNil(t, jcr)
 
-			require.Equal(t, jcr.State, tc.state[0])
+			require.Equal(t, tc.state[0], jcr.State)
 			crs := jcr.GetCodeResults()
 			require.NotEmpty(t, crs)
 			for i, cr := range crs {
@@ -120,7 +121,7 @@ func startTestJudgerServer(t *testing.T, conf config.Config, lcm json.LangConfMa
 }
 
 func newTestJudgerClient(t *testing.T, addr string) pb_jg.CodeClient {
-	cc, err := grpc.Dial(addr, grpc.WithInsecure())
+	cc, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	return pb_jg.NewCodeClient(cc)
 }

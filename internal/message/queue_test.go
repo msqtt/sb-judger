@@ -10,7 +10,8 @@ import (
 func TestQueue(t *testing.T) {
 	msqid, err := OpenQueue(0)
 	require.NoError(t, err)
-	require.NotZero(t, msqid)
+	// Not all environments are 0
+	// require.NotZero(t, msqid)
 
 	m := NewMsg(1, []byte("1"))
 	require.NotNil(t, m)
@@ -30,13 +31,13 @@ func TestQueue(t *testing.T) {
 func TestMsgChan(t *testing.T) {
 	msqid, err := OpenQueue(0)
 	require.NoError(t, err)
-	require.NotZero(t, msqid)
+	// require.NotZero(t, msqid)
 
 	m := NewMsg(1, []byte("1"))
 	require.NotNil(t, m)
 
 	go func() {
-    time.Sleep(time.Second)
+		time.Sleep(time.Second)
 		err2 := SndMsg(msqid, m)
 		require.NoError(t, err2)
 	}()

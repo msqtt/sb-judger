@@ -63,7 +63,7 @@ open http://localhost:8080
 
 ### 🐬 Docker 
 
-#### 用用我的
+#### 使用我的
 
 ```sh
 docker pull msqt/sb-judger:latest
@@ -73,7 +73,7 @@ docker run --privileged -d -p8080:8080 -p9090:9090 msqt/sb-judger
 #### 自己构建
 
 ```sh
-make docker
+APP_IMAGE_NAME=xxx APP_IMAGE_TAG=0.1.0 make docker
 ```
 
 ---
@@ -97,8 +97,8 @@ sb-judger 使用 `grpc` 和 `http` 作为通讯协议，且使用 `grpc-http-gat
 ## 🛣 路线
 
 > - [X] `ℹ️ Support cgroupv2`
-> - [ ] `ℹ️ Test`
-> - [ ] `ℹ️ Support cgroupv1`
+> - [X] `ℹ️ Test`
+> - [ ] `ℹ️ Metric API`
 > - [ ] `ℹ️ ...`
 
 ## 🧮 支持语言
