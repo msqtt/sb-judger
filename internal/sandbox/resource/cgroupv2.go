@@ -12,12 +12,16 @@ import (
 	"strings"
 )
 
-const cgroupRoot = "/sys/fs/cgroup"
+var cgroupRoot = "/sys/fs/cgroup"
 
 // init function write the cgroupv2 controllers to sub_controller.
 // make sure that sub cgroup cant inherit the controllers.
 // every error causes panic.
 func init() {
+	envRoot := os.Getenv("CGROUP2_PATH")
+	if envRoot != "" {
+		cgroupRoot = envRoot
+	}
 	procPath := filepath.Join(cgroupRoot, "cgroup.procs")
 	subTreePath := filepath.Join(cgroupRoot, "cgroup.subtree_control")
 	ctrlPath := filepath.Join(cgroupRoot, "cgroup.controllers")
